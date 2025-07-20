@@ -39,9 +39,9 @@ entity FPGA_ATARISYS2 is
 	port (
 		I_SLAP_TYPE: in  integer range 100 to 118; -- slapstic type can be changed dynamically 		-- 105:paperboy, 107:720 degrees, 108:ssprint, 109:csprint, 110:apb
 		-- System Clocks
-		I_CLK_14M  : in  std_logic;
-		I_CLK_16M  : in  std_logic;
-		I_CLK_20M  : in  std_logic;
+		I_CLK_14M3 : in  std_logic; -- 14.3 MHz
+		I_CLK_16M0 : in  std_logic; -- 16.0 Mhz
+		I_CLK_20M0 : in  std_logic; -- 20.0 MHz
 
 		-- Active low reset
 		I_RESET    : in  std_logic;
@@ -116,14 +116,22 @@ signal
 signal slv_VPA      : std_logic_vector(12 downto 1);
 signal slv_ROM_ADDR : std_logic_vector(16 downto 1);
 signal
+	sl_SPEED,
+	sl_P2IRQCLRn,
 	sl_VMP0,
 	sl_VMP1,
 	sl_R_WLn,
 	sl_MEMREQn,
+	sl_TMS_CLK_ENA,
 	sl_COLORAMn,
 	sl_VSCROLLn,
 	sl_HSCROLLn,
 	sl_COUT,
+	sl_P1TALK,
+	sl_P2TALK,
+	sl_P2PORTWRn,
+	sl_RST6502n,
+	sl_P2RESETn,
 	sl_MEMDONE,
 	sl_STANDALONEn,
 	sl_VIDMEMACKn,
@@ -134,16 +142,16 @@ signal
 	: std_logic := '1';
 begin
 	-- ROMs
-	ROM_SLAPSH : entity work.ROM_CPU_N07 port map ( CLK => I_CLK_20M, DATA => slv_data_SLAPS(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --n07 0x008001 HI
-	ROM_SLAPSL : entity work.ROM_CPU_L07 port map ( CLK => I_CLK_20M, DATA => slv_data_SLAPS( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --l07 0x008000 LO
-	ROM_PAGE0H : entity work.ROM_CPU_N06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE0(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --n06 0x010001 HI
-	ROM_PAGE0L : entity work.ROM_CPU_F06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE0( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --f06 0x010000 LO
-	ROM_PAGE1H : entity work.ROM_CPU_P06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE1(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --p06 0x030001 HI
-	ROM_PAGE1L : entity work.ROM_CPU_J06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE1( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --j06 0x030000 LO
-	ROM_PAGE2H : entity work.ROM_CPU_R06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE2(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --r06 0x050001 HI
-	ROM_PAGE2L : entity work.ROM_CPU_K06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE2( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --k06 0x050000 LO
-	ROM_PAGE3H : entity work.ROM_CPU_S06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE3(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --s06 0x070001 HI
-	ROM_PAGE3L : entity work.ROM_CPU_L06 port map ( CLK => I_CLK_20M, DATA => slv_data_PAGE3( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --l06 0x070000 LO
+	ROM_SLAPSH : entity work.ROM_CPU_N07 port map ( CLK => I_CLK_20M0, DATA => slv_data_SLAPS(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --n07 0x008001 HI
+	ROM_SLAPSL : entity work.ROM_CPU_L07 port map ( CLK => I_CLK_20M0, DATA => slv_data_SLAPS( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --l07 0x008000 LO
+	ROM_PAGE0H : entity work.ROM_CPU_N06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE0(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --n06 0x010001 HI
+	ROM_PAGE0L : entity work.ROM_CPU_F06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE0( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --f06 0x010000 LO
+	ROM_PAGE1H : entity work.ROM_CPU_P06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE1(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --p06 0x030001 HI
+	ROM_PAGE1L : entity work.ROM_CPU_J06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE1( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --j06 0x030000 LO
+	ROM_PAGE2H : entity work.ROM_CPU_R06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE2(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --r06 0x050001 HI
+	ROM_PAGE2L : entity work.ROM_CPU_K06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE2( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --k06 0x050000 LO
+	ROM_PAGE3H : entity work.ROM_CPU_S06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE3(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --s06 0x070001 HI
+	ROM_PAGE3L : entity work.ROM_CPU_L06 port map ( CLK => I_CLK_20M0, DATA => slv_data_PAGE3( 7 downto 0), ADDR => slv_ROM_ADDR(14 downto 1) ); --l06 0x070000 LO
 
 	slv_ROM_DATA <=
 		slv_data_SLAPS when sl_ROM_SLAPn = '0'                                     else -- SLAP
@@ -155,67 +163,127 @@ begin
 
 	u_main : entity work.MAIN
 	port map (
-		I_SLAP_TYPE   => I_SLAP_TYPE,
-		I_CLK         => I_CLK_20M,
-		I_PWRONRST    => I_RESET,
-		I_SELFTESTn   => I_SELFTESTn,
-		I_SW          => I_SW,
-		I_WDISn       => I_WDISn,
-		I_ROM_DATA    => slv_ROM_DATA,
-		O_ROM_ADDR    => slv_ROM_ADDR,
-		O_ROM_SLAPn   => sl_ROM_SLAPn,
-		O_ROM_PAGEn   => sl_ROM_PAGEn,
+		I_SLAP_TYPE    => I_SLAP_TYPE,
+		I_CLK          => I_CLK_20M0,
+		I_PWRONRST     => I_RESET,
+		I_SELFTESTn    => I_SELFTESTn,
+		I_WDISn        => I_WDISn,
+		I_SW           => I_SW,
+		I_SPEED        => sl_SPEED,
+		I_P2IRQCLRn    => sl_P2IRQCLRn,
+		O_TMS_CLK_ENA  => sl_TMS_CLK_ENA,
+		O_LETA_CLK_ENA => sl_TMS_CLK_ENA,
 
-		O_ADC_ADDR    => slv_adc_addr,
-		I_ADC_DATA    => slv_adc_data,
+		I_ROM_DATA     => slv_ROM_DATA,
+		O_ROM_ADDR     => slv_ROM_ADDR,
+--		O_ROM_SLAPn    => sl_ROM_SLAPn,
+--		O_ROM_PAGEn    => sl_ROM_PAGEn,
 
-		O_VMP0        => sl_VMP0,
-		O_VMP1        => sl_VMP1,
-		O_R_WLn       => sl_R_WLn,
-		O_MEMREQn     => sl_MEMREQn,
-		O_COLORAMn    => sl_COLORAMn,
-		O_VSCROLLn    => sl_VSCROLLn,
-		O_HSCROLLn    => sl_HSCROLLn,
-		O_COUT        => sl_COUT,
-		O_MEMDONE     => sl_MEMDONE,
-		O_VPA         => slv_VPA,
-		O_VPD         => slv_VPDO,
-		I_VPD         => slv_VPDI,
-		I_STANDALONEn => sl_STANDALONEn,
-		I_VIDMEMACKn  => sl_VIDMEMACKn,
-		I_VBLANK      => sl_VBLANK,
-		I_32V         => sl_32V
+		O_ADC_ADDR     => slv_adc_addr,
+		I_ADC_DATA     => slv_adc_data,
+
+		O_P2RESETn     => sl_P2RESETn,
+		O_RST6502n     => sl_RST6502n,
+		I_P2PORTWRn    => sl_P2PORTWRn,
+		O_P1TALK       => sl_P1TALK,
+		O_P2TALK       => sl_P2TALK,
+
+		O_VMP0         => sl_VMP0,
+		O_VMP1         => sl_VMP1,
+		O_R_WLn        => sl_R_WLn,
+		O_MEMREQn      => sl_MEMREQn,
+		O_COLORAMn     => sl_COLORAMn,
+		O_VSCROLLn     => sl_VSCROLLn,
+		O_HSCROLLn     => sl_HSCROLLn,
+		O_COUT         => sl_COUT,
+		O_MEMDONE      => sl_MEMDONE,
+		O_VPA          => slv_VPA,
+		O_VPD          => slv_VPDO,
+		I_VPD          => slv_VPDI,
+		I_STANDALONEn  => sl_STANDALONEn,
+		I_VIDMEMACKn   => sl_VIDMEMACKn,
+		I_VBLANK       => sl_VBLANK,
+		I_32V          => sl_32V
 	);
 
 	u_video : entity work.VIDEO
 	port map (
-		I_CLK         => I_CLK_16M,
-		I_VMP0        => sl_VMP0,
-		I_VMP1        => sl_VMP1,
-		I_R_WLn       => sl_R_WLn,
-		I_MEMREQn     => sl_MEMREQn,
-		I_COLORAMn    => sl_COLORAMn,
-		I_VSCROLLn    => sl_VSCROLLn,
-		I_HSCROLLn    => sl_HSCROLLn,
-		I_COUT        => sl_COUT,
-		I_MEMDONE     => sl_MEMDONE,
-		I_VPA         => slv_VPA,
-		I_VPD         => slv_VPDO,
-		O_VPD         => slv_VPDI,
-		O_STANDALONEn => sl_STANDALONEn,
-		O_VPACKn      => sl_VIDMEMACKn,
-		O_384VD4H     => sl_VBLANK,
-		O_32VDD4H     => sl_32V
+		I_CLK          => I_CLK_16M0,
+		I_VMP0         => sl_VMP0,
+		I_VMP1         => sl_VMP1,
+		I_R_WLn        => sl_R_WLn,
+		I_MEMREQn      => sl_MEMREQn,
+		I_COLORAMn     => sl_COLORAMn,
+		I_VSCROLLn     => sl_VSCROLLn,
+		I_HSCROLLn     => sl_HSCROLLn,
+		I_COUT         => sl_COUT,
+		I_MEMDONE      => sl_MEMDONE,
+		I_VPA          => slv_VPA,
+		I_VPD          => slv_VPDO,
+		O_VPD          => slv_VPDI,
+
+		O_VPACKn       => sl_VIDMEMACKn,
+		O_384VD4Hn     => sl_VBLANK,
+		O_32VDD4Hn     => sl_32V,
+		O_STANDALONEn  => sl_STANDALONEn,
+
+		O_ANROMA       => open,
+		I_ANROMD       => (others=>'0'),
+		O_MOROMA       => open,
+		I_MOROMD       => (others=>'0'),
+		O_PFROMA       => open,
+		I_PFROMD       => (others=>'0'),
+		O_VIDEO_I      => open,
+		O_VIDEO_R      => open,
+		O_VIDEO_G      => open,
+		O_VIDEO_B      => open,
+		O_COMPSYNCn    => open,
+		O_HSYNC        => open,
+		O_VSYNC        => open
 	);
 
---	u_audio : entity work.AUDIO
---	port map (
---		I_CLK         => I_CLK_14M, -- 14.31818MHz
---	);
+	u_audio : entity work.AUDIO
+	port map (
+		I_CLK_14M3     => I_CLK_14M3,
+		I_TMS_CLK_ENA  => sl_TMS_CLK_ENA,
+		I_LETA_CLK_ENA => sl_TMS_CLK_ENA,
+		I_COINR        => '1',
+		I_COINL        => '1',
+		I_COINAUX      => '1',
+		I_SELFTESTn    => '1',
+		I_P1TALK       => sl_P1TALK,
+		I_P2TALK       => sl_P2TALK,
+
+		O_SNDROMA      => open, --: out std_logic_vector(15 downto 0); -- address 4000-FFFF
+		I_SNDROMD      => (others=>'0'),--: in  std_logic_vector( 7 downto 0);
+		O_P2PORTWRn    => sl_P2PORTWRn,
+
+		O_SPEED        => sl_SPEED,
+		O_P2IRQCLRn    => sl_P2IRQCLRn,
+
+		O_CNTRL        => open,
+		O_CNTRR        => open,
+		O_LED1         => open,
+		O_LED2         => open,
+
+		O_AUDIO1       => open,
+		O_AUDIO2       => open,
+
+		I_P2RESETn     => sl_P2RESETn,
+		I_RST6502n     => sl_RST6502n,
+
+		-- 8 position switches to Pokey 1 and 2 parallel port
+		I_SW8P1        => (others=>'1'),-- : in  std_logic_vector(7 downto 0);
+		I_SW8P2        => (others=>'1'),-- : in  std_logic_vector(7 downto 0);
+
+		-- quadrature encoders to LETA
+		I_LETA_CLK     => (others=>'0'),-- : in  std_logic_vector(3 downto 0);
+		I_LETA_DIR     => (others=>'0')-- : in  std_logic_vector(3 downto 0);
+	);
 
 --	p_volmux : process
 --	begin
---		wait until rising_edge(I_CLK_20M);
+--		wait until rising_edge(I_CLK_20M0);
 --		-- add signed outputs together, already have extra spare bits for overflow
 --		s_chan_l <= ( ((s_snd & "00") + s_audio_YML) + (s_POK_out(s_POK_out'left) & s_POK_out & "000000000") );
 --		s_chan_r <= ( ((s_snd & "00") + s_audio_YMR) + (s_POK_out(s_POK_out'left) & s_POK_out & "000000000") );
