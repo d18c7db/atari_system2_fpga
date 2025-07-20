@@ -18,9 +18,9 @@ library ieee;
 
 entity RAM_2K8 is
 	port(
-		I_MCKR : in  std_logic;
-		I_En   : in  std_logic;
-		I_Wn   : in  std_logic;
+		I_CLK  : in  std_logic;
+		I_CEn  : in  std_logic;
+		I_WEn  : in  std_logic;
 		I_ADDR : in  std_logic_vector(10 downto 0);
 		I_DATA : in  std_logic_vector( 7 downto 0);
 		O_DATA : out std_logic_vector( 7 downto 0)
@@ -41,9 +41,9 @@ architecture RTL of RAM_2K8 is
 begin
 	p_RAM : process
 	begin
-		wait until rising_edge(I_MCKR);
-		if I_En ='0' then
-			if I_Wn = '0' then
+		wait until rising_edge(I_CLK);
+		if I_CEn = '0' then
+			if I_WEn = '0' then
 				RAM(to_integer(unsigned(I_ADDR))) <= I_DATA;
 			else
 				O_DATA <= RAM(to_integer(unsigned(I_ADDR)));

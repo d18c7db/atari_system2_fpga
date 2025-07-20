@@ -23,9 +23,9 @@
 --------------------------------------------------------------------------------
 library ieee;
 	use ieee.std_logic_1164.all;
+	use ieee.std_logic_unsigned.all;
 	use ieee.numeric_std.all;
 --	use ieee.std_logic_arith.all;
---	use ieee.std_logic_unsigned.all;
 
 entity tb_video is
 end tb_video;
@@ -73,8 +73,13 @@ architecture RTL of tb_video is
 	signal	slv_VPA			: std_logic_vector(12 downto 1);
 	signal	slv_VPD,
 			slv_MOROMD,
-			slv_PFROMD		: std_logic_vector(15 downto 0) := (others=>'0');
-	signal	slv_ANROMA		: std_logic_vector(15 downto 0) := (others=>'0');
+			slv_ROM10D,
+			slv_ROM20D,
+			slv_ROM30D,
+			slv_ROM38D,
+			slv_PFROMD,
+			slv_ANROMA		: std_logic_vector(15 downto 0) := (others=>'0');
+	signal	slv_ctr			: std_logic_vector(15 downto 0) := (others=>'0');
 	signal	slv_PFROMA		: std_logic_vector(17 downto 0) := (others=>'0');
 	signal	slv_MOROMA		: std_logic_vector(19 downto 0) := (others=>'0');
 
@@ -87,100 +92,174 @@ begin
 	-- active high reset for DUT
 	p_rst : process
 	begin
-		sl_RESET <= '0'; wait for CLK20_period*8;
-		sl_RESET <= '1'; wait for CLK20_period*8;
+		sl_RESET <= '0'; wait for CLK16_period*4;
+		sl_RESET <= '1'; wait for CLK16_period*8;
 		sl_RESET <= '0'; wait;
 	end process;
 
+	-- palette initialization ROM region 1000-11FF
+	ROM_10 : entity work.ROM_10 port map ( I_CLK => sl_CLK_20M, O_DATA => slv_ROM10D, I_ADDR => slv_ctr( 9 downto 2) ); -- 256x16
+	-- screen initialization ROMs region 2000-3FFF 20=AN/MO bank 20,  30,38=PF banks 30,38
+	ROM_20 : entity work.ROM_20 port map ( I_CLK => sl_CLK_20M, O_DATA => slv_ROM20D, I_ADDR => slv_ctr(13 downto 2) ); -- 4Kx16
+	ROM_30 : entity work.ROM_30 port map ( I_CLK => sl_CLK_20M, O_DATA => slv_ROM30D, I_ADDR => slv_ctr(13 downto 2) ); -- 4Kx16
+	ROM_38 : entity work.ROM_38 port map ( I_CLK => sl_CLK_20M, O_DATA => slv_ROM38D, I_ADDR => slv_ctr(13 downto 2) ); -- 4Kx16
+
 	p_dut : process
 	begin
-		-- initialize default levels
-		sl_VMP0     <= '0';
-		sl_VMP1     <= '0';
-		sl_R_WLn    <= '1';
-		sl_MEMREQn  <= '1';
-		sl_COLORAMn <= '1';
-		sl_COUT     <= '1';
-		sl_MEMDONE  <= '1';
-		sl_HSCROLLn <= '1';
-		sl_VSCROLLn <= '1';
-		slv_VPA     <= x"000";
+		wait until rising_edge(sl_CLK_20M);
+		if sl_RESET = '1' then
+			slv_ctr <= (others=>'0');
+		else
+			case slv_ctr(15 downto 14) is
 
---		-- H scroll value
---		slv_VPD <= x"8000"; wait for CLK20_period*2;
---		-- toggle H scroll line to latch value
---		sl_HSCROLLn <= '0'; wait for CLK20_period*2;
---		sl_HSCROLLn <= '1'; wait for CLK20_period*2;
---
---		-- V scroll value
---		slv_VPD <= x"2013"; wait for CLK20_period*2;
---		-- toggle V scroll line to latch value
---		sl_VSCROLLn <= '0'; wait for CLK20_period*2;
---		sl_VSCROLLn <= '1'; wait for CLK20_period*2;
---
---		slv_VPD <= x"0000"; wait for CLK20_period*2;
+			-- outer state 00 - init ANMO RAM 2000-3FFF bank 0
+			when "00" =>
+				-- counter bits ( 1 downto 0) select state
+				-- counter bits (13 downto 2) are the ROM address
+				case slv_ctr(1 downto 0) is
+				when "00" =>
+					sl_VMP0     <= '0'; -- top addr bit of PF
+					sl_VMP1     <= '0'; -- selects ANMO when 0 or PF when 1
+					sl_MEMREQn  <= '0';
+					sl_MEMDONE  <= '0'; -- allow video memory selection
+					sl_R_WLn    <= '0'; -- enable write
+					slv_VPA <= slv_ctr(13 downto 2); -- address
+					slv_ctr <= slv_ctr + 1;
+				when "01" =>
+					slv_VPD <= slv_ROM20D; -- data from intialization ROM
+					slv_ctr <= slv_ctr + 1;
+				when "10" =>
+					if sl_VPACKn = '0' then
+						slv_ctr <= slv_ctr + 1;
+					end if;
+				when "11" =>
+					if sl_VPACKn = '1' then
+						sl_R_WLn    <= '1';
+						sl_MEMREQn  <= '1';
+						sl_MEMDONE  <= '1'; -- disable video memory selection
+						slv_ctr <= slv_ctr + 1;
+					end if;
+				when others => null;
+				end case;
 
-		-- AN_MO palette: fill 1000,10, w.FFFF, 0000, F80F, FC0F, 0000, F00F, 0000, 00FF
---		sl_COLORAMn <= '0'; wait for CLK20_period*2; -- select color palette RAM, COUT used as write enable low
---		slv_VPA <= x"007"; slv_VPD <= x"FFFF"; sl_COUT <= '0'; wait for CLK20_period*2; sl_COUT <= '1'; wait for CLK20_period*2;
---		slv_VPA <= x"009"; slv_VPD <= x"F80F"; sl_COUT <= '0'; wait for CLK20_period*2; sl_COUT <= '1'; wait for CLK20_period*2;
---		slv_VPA <= x"00A"; slv_VPD <= x"FC0F"; sl_COUT <= '0'; wait for CLK20_period*2; sl_COUT <= '1'; wait for CLK20_period*2;
---		slv_VPA <= x"00C"; slv_VPD <= x"F00F"; sl_COUT <= '0'; wait for CLK20_period*2; sl_COUT <= '1'; wait for CLK20_period*2;
---		slv_VPA <= x"00E"; slv_VPD <= x"00FF"; sl_COUT <= '0'; wait for CLK20_period*2; sl_COUT <= '1'; wait for CLK20_period*2;
---		sl_COLORAMn <= '1'; wait for CLK20_period*2; -- deselect color palette RAM
+			-- outer state 01 - init PF RAM 2000-3FFF bank 2
+			when "01" =>
+				-- counter bits ( 1 downto 0) select state
+				-- counter bits (13 downto 2) are the ROM address
+				case slv_ctr(1 downto 0) is
+				when "00" =>
+					sl_VMP0     <= '0'; -- top addr bit of PF
+					sl_VMP1     <= '1'; -- selects ANMO when 0 or PF when 1
+					sl_MEMREQn  <= '0';
+					sl_MEMDONE  <= '0'; -- allow video memory selection
+					sl_R_WLn    <= '0'; -- enable write
+					slv_ctr <= slv_ctr + 1;
+				when "01" =>
+					slv_VPA <= slv_ctr(13 downto 2); -- address
+					slv_ctr <= slv_ctr + 1;
+				when "10" =>
+					slv_VPD <= slv_ROM30D; -- data from intialization ROM
+					if sl_VPACKn = '0' then
+						slv_ctr <= slv_ctr + 1;
+					end if;
+				when "11" =>
+					if sl_VPACKn = '1' then
+						sl_R_WLn    <= '1';
+						sl_MEMREQn  <= '1';
+						sl_MEMDONE  <= '1'; -- disable video memory selection
+						slv_ctr <= slv_ctr + 1;
+					end if;
+				when others => null;
+				end case;
 
-		-- sprite: fill 3800, 40, w.7000, 1371, 0A2C, 6008, 7000, 1B74, 0E2C, 6010, 7000, 1B78, 122C, 6018, 7000, 1B7C, 162C, 6020, 7000, 1381, 1A2C, 6028, 6C00, 034B, 0E2C, 6030, 6C00, 03B7, 122C, 6038, 6C00, 03C7, 162C, 6040
-		sl_VMP1     <= '0';
-		sl_MEMREQn  <= '0';
-		sl_MEMDONE  <= '0'; -- allow video memory selection
+			-- outer state 10 - init PF RAM 2000-3FFF bank 3
+			when "10" =>
+				-- counter bits ( 1 downto 0) select state
+				-- counter bits (13 downto 2) are the ROM address
+				case slv_ctr(1 downto 0) is
+				when "00" =>
+					sl_VMP0     <= '1'; -- top addr bit of PF
+					sl_VMP1     <= '1'; -- selects ANMO when 0 or PF when 1
+					sl_MEMREQn  <= '0';
+					sl_MEMDONE  <= '0'; -- allow video memory selection
+					sl_R_WLn    <= '0'; -- enable write
+					slv_ctr <= slv_ctr + 1;
+				when "01" =>
+					slv_VPA <= slv_ctr(13 downto 2); -- address
+					slv_ctr <= slv_ctr + 1;
+				when "10" =>
+					slv_VPD <= slv_ROM38D; -- data from intialization ROM
+					if sl_VPACKn = '0' then
+						slv_ctr <= slv_ctr + 1;
+					end if;
+				when "11" =>
+					if sl_VPACKn = '1' then
+						sl_R_WLn    <= '1';
+						sl_MEMREQn  <= '1';
+						sl_MEMDONE  <= '1'; -- disable video memory selection
+						slv_ctr <= slv_ctr + 1;
+					end if;
+				when others => null;
+				end case;
 
-		sl_R_WLn <= '0'; -- position max size sprite at top left corner
-		slv_VPA <= x"600"; slv_VPD <= x"5FC0"; wait until rising_edge(sl_VPACKn);
-		slv_VPA <= x"601"; slv_VPD <= x"3B78"; wait until rising_edge(sl_VPACKn);
-		slv_VPA <= x"602"; slv_VPD <= x"002C"; wait until rising_edge(sl_VPACKn);
-		slv_VPA <= x"603"; slv_VPD <= x"8008"; wait until rising_edge(sl_VPACKn);
-		sl_R_WLn <= '1';
+			-- outer state 11 - init palette RAM
+			when "11" =>
+				if slv_ctr < x"C400" then -- if in palette range
+					-- counter bits ( 1 downto 0) select state
+					-- counter bits ( 9 downto 2) are the ROM address
+					case slv_ctr(1 downto 0) is
+					when "00" =>
+						sl_COLORAMn <= '0'; -- select color palette RAM
+						sl_VMP0     <= '0'; -- top addr bit of PF
+						sl_VMP1     <= '0'; -- selects ANMO when 0 or PF when 1
+						slv_VPA <= slv_ctr(13 downto 2); -- address
+						slv_ctr <= slv_ctr + 1;
+					when "01" =>
+						slv_VPD <= slv_ROM10D; -- data from intialization ROM
+						sl_COUT <= '1'; -- write data
+						slv_ctr <= slv_ctr + 1;
+					when "10" =>
+						slv_ctr <= slv_ctr + 1;
+					when "11" =>
+						sl_COUT <= '0';
+						sl_COLORAMn <= '1'; -- restore to defaults
+						slv_ctr <= slv_ctr + 1;
+					when others => null;
+					end case;
+				else -- special cases
+					case slv_ctr(2 downto 0) is
+					when "000" =>
+						-- H scroll value
+						slv_VPD <= x"8000";
+						slv_ctr <= slv_ctr + 1;
+					when "001" =>
+						-- toggle H scroll line to latch value
+						sl_HSCROLLn <= '0';
+						slv_ctr <= slv_ctr + 1;
+					when "010" =>
+						sl_HSCROLLn <= '1';
+						slv_ctr <= slv_ctr + 1;
 
---		slv_VPA <= x"C04"; slv_VPD <= x"7000"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C05"; slv_VPD <= x"1B74"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C06"; slv_VPD <= x"0E2C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C07"; slv_VPD <= x"6010"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---
---		slv_VPA <= x"C08"; slv_VPD <= x"7000"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C09"; slv_VPD <= x"1B78"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C0A"; slv_VPD <= x"122C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C0B"; slv_VPD <= x"6018"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---
---		slv_VPA <= x"C0C"; slv_VPD <= x"7000"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C0D"; slv_VPD <= x"1B7C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C0E"; slv_VPD <= x"162C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C0F"; slv_VPD <= x"6020"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---
---		slv_VPA <= x"C10"; slv_VPD <= x"7000"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C11"; slv_VPD <= x"1381"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C12"; slv_VPD <= x"1A2C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C13"; slv_VPD <= x"6028"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---
---		slv_VPA <= x"C14"; slv_VPD <= x"6C00"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C15"; slv_VPD <= x"034B"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C16"; slv_VPD <= x"0E2C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C17"; slv_VPD <= x"6030"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---
---		slv_VPA <= x"C18"; slv_VPD <= x"6C00"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C19"; slv_VPD <= x"03B7"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C1A"; slv_VPD <= x"122C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C1B"; slv_VPD <= x"6038"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---
---		slv_VPA <= x"C1C"; slv_VPD <= x"6C00"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C1D"; slv_VPD <= x"03C7"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C1E"; slv_VPD <= x"162C"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
---		slv_VPA <= x"C1F"; slv_VPD <= x"6040"; sl_R_WLn <= '1'; wait until sl_VPACKn = '0'; sl_R_WLn <= '0'; wait until sl_VPACKn = '1';
+					when "011" =>
+						-- V scroll value
+						slv_VPD <= x"2013";
+						slv_ctr <= slv_ctr + 1;
+					when "100" =>
+						-- toggle V scroll line to latch value
+						sl_VSCROLLn <= '0';
+						slv_ctr <= slv_ctr + 1;
+					when "101" =>
+						sl_VSCROLLn <= '1';
+						slv_ctr <= slv_ctr + 1;
+					when others => null; -- freeze state machine
+					end case;
+				end if;
 
-		sl_R_WLn    <= '1';
-		sl_MEMREQn  <= '1';
-		sl_MEMDONE  <= '1'; -- disable video memory selection
+			-- outer state never reached default state
+			when others => null;
+			end case;
 
-		wait;
+		end if;
 	end process;
 
 	-- PF ROM_REGION( 0x20000, "gfx1", 0 )
@@ -226,8 +305,8 @@ begin
 		I_CLK            => sl_CLK_16M,
 
 		-- Interboard connector P18
-		I_VMP0           => sl_VMP0,
-		I_VMP1           => sl_VMP1,
+		I_VMP0           => sl_VMP0, -- top addr bit of PF
+		I_VMP1           => sl_VMP1, -- selects ANMO when 0 or PF when 1
 		I_R_WLn          => sl_R_WLn,
 		I_MEMREQn        => sl_MEMREQn,
 		I_COLORAMn       => sl_COLORAMn,
