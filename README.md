@@ -14,13 +14,14 @@ System-2 supported game cartridges according to MAME
 * 720 degrees (1986)
 * APB: All Points Bulletin (1987)
 
-
 # WORK IN PROGRESS  
 Very early stages, totally non functional  
 * In simulation the T11 CPU can execute instructions  
 * Audio non existent, needs to be coded  
-* Video circuit missing contents of 512x4 PROM (82S131) used for video ROM address decoding, this is a showstopper for now until a PROM can be dumped by someone with physical access to a PCB  
 
 Output of simulation of video circuit with RAMs preloaded with data dumped from MAME  
-Only PlayField (PF) and AlphaNumerics (AN) data rendered, because MotionObjects (MO) requires the above mentioned PROM data.  
+Only PlayField (PF) and AlphaNumerics (AN) data rendered for now,  MotionObjects (MO) is being worked on.  
 [![Frame from Simulation](doc/F1.AL.PF.gif)](doc/F1.AL.PF.gif) 
+
+# Thanks
+Many thanks to Colin Davies (ColinD - UKVAC) for supporting the preservation of old arcades and dumping the contents of the 82S131 PROM from the Atari Championship Sprint arcade video board. This allowed the video circuit to properly display the Motion Objects (sprites). 
