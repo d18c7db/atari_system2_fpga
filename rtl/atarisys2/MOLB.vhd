@@ -10,7 +10,7 @@
 --
 -- For full details, see the GNU General Public License at www.gnu.org/licenses
 --
--- Motion Object Line Buffer based on SP-308 schematic sheet 13B
+-- Motion Object Line Buffer all chip designations are based on SP-308 schematic sheet 13B
 
 library ieee;
 	use ieee.std_logic_1164.all;

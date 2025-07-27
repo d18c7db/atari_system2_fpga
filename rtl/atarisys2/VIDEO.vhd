@@ -9,7 +9,7 @@
 -- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 --
 -- For full details, see the GNU General Public License at www.gnu.org/licenses
--- Atari System-2 Video circuit, based on SP-308 schematic
+-- Atari System-2 Video circuit, all chip designations are based on SP-308 schematic
 
 library ieee;
 	use ieee.std_logic_1164.all;
@@ -43,8 +43,8 @@ entity VIDEO is
 
 		-- Video outbound control signals
 		O_VPACKn         : out std_logic; -- VIDMEMACKn
-		O_384VD4Hn       : out std_logic; -- VBLANK
-		O_32VDD4Hn       : out std_logic; -- 32V
+		O_384VD_4Hn      : out std_logic; -- VBLANK
+		O_32VDD_4Hn      : out std_logic; -- 32V
 		O_STANDALONEn    : out std_logic; -- Pulled low on this board
 
 		-- Interboard connector P18 end
@@ -75,9 +75,9 @@ signal
 	sl_0OF3Vn,
 	sl_1OF3Vn,
 	sl_2OF3Vn,
-	sl_32VD4Hn,
-	sl_32VDD4Hn,
-	sl_384VD4Hn,
+	sl_32VD_4Hn,
+	sl_32VDD_4Hn,
+	sl_384VD_4Hn,
 	sl_5CD_3CD_4DE_LDENn,
 	sl_ANMORAMn,
 	sl_ANMORDHn,
@@ -96,7 +96,7 @@ signal
 	sl_GONn,
 	sl_HSCROLLn,
 	sl_HSLDn,
-	sl_HSYNCn,
+	sl_HSYNC,
 	sl_MEMREQn,
 	sl_MOHLD0n,
 	sl_MOHLD1n,
@@ -153,14 +153,20 @@ signal
 	sl_8Hn_strobe,
 	sl_13A_Q,
 	sl_2T,
-	sl_32VDD4H,
+	sl_32VDD_4H,
 	sl_384V,
-	sl_4H8H,
-	sl_4Hn_8H_CLK,
+	sl_4Hn_8Hn,
+	sl_4Hn_8H,
+	sl_4H_8Hn,
+	sl_4H_8H,
+	sl_1H_2H,	-- NIBLOAD
 	sl_4Hn_8Hn_CLK,
-	sl_512HD16H,
-	sl_512HD4H,
-	sl_8HD4H,
+	sl_4Hn_8H_CLK,
+	sl_4H_8Hn_CLK,
+	sl_4H_8H_CLK,
+	sl_512HD_16H,
+	sl_512HD_4H,
+	sl_8HD_4H,
 	sl_ANCOL0,
 	sl_ANCOL0D,
 	sl_ANCOL1,
@@ -176,7 +182,7 @@ signal
 	sl_HRIPPLE,
 	sl_HSPERIOD,
 	sl_HSTC,
-	sl_HSYNCn_last,
+	sl_HSYNC_last,
 	sl_LBCOL0,
 	sl_LBCOL1,
 	sl_LBPIX0,
@@ -193,7 +199,6 @@ signal
 	sl_MOHLDIS,
 	sl_MOPRI0,
 	sl_MOPRI1,
-	sl_NIBLOAD,
 	sl_PFCOL0D,
 	sl_PFCOL1D,
 	sl_PFCOL2D,
@@ -206,7 +211,8 @@ signal
 	sl_VMP0,
 	sl_VMP1,
 	sl_VPULSE,
-	sl_VSYNC
+	sl_VSYNC,
+	sl_VSYNC_last
 	: std_logic := '0';
 signal
 	slv_PFP,
@@ -240,7 +246,7 @@ signal
 	slv_PFB0,
 	slv_PFB1,
 --	slv_PFROMSELn,
-	slv_PROM_4MN_DATA,
+	slv_PROMD,
 	slv_R, slv_G, slv_B,
 	slv_Z        : std_logic_vector( 3 downto 0) := (others=>'0');
 signal
@@ -257,7 +263,7 @@ signal
 	slv_MOLB2_DO,
 	slv_LLA             : std_logic_vector( 7 downto 0) := (others=>'0');
 signal
-	slv_PROM_4MN_ADDR,
+	slv_PROMA,
 	slv_sum_4J_4K,
 	slv_VSx,
 	slv_xVS,
@@ -296,27 +302,12 @@ signal
 	slv_MOROMA          : std_logic_vector(19 downto 0) := (others=>'0');
 signal
 	slv_ANMOD           : std_logic_vector(31 downto 0) := (others=>'0');
-
-	type PROM_ARRAY is array (0 to 511) of std_logic_vector(3 downto 0);
-	signal PROM_4MN : PROM_ARRAY := ((others=>(others=>'1'))); -- FIXME put contents of PROM here
 begin
 	O_VPD         <= slv_VPDO;
 	O_STANDALONEn <= sl_STANDALONEn;
 	O_VPACKn      <= sl_VPACKn;
-	O_384VD4Hn    <= sl_384VD4Hn;
-	O_32VDD4Hn    <= sl_32VDD4Hn;
-
-	-- AlphaNumeric  ROMs
-	O_ANROMA      <= (not slv_ANROMA(15 downto 14)) & slv_ANROMA(13 downto 4) & sl_4V & sl_2V & sl_1V & (not sl_4H);
-	slv_ANROMD    <= I_ANROMD;
-
-	-- Motion object ROMs
-	O_MOROMA      <= slv_MOROMA;
-	slv_MOROMD    <= I_MOROMD;
-
-	-- Play Field ROMs
-	O_PFROMA      <=  slv_PFBS(2 downto 1) & ( not slv_PFBS(3)) & slv_PFBS(0) & slv_PFROMA(13 downto 4) & slv_xVS(2 downto 0) & (not sl_4H);
-	slv_PFROMD    <= I_PFROMD;
+	O_384VD_4Hn   <= sl_384VD_4Hn;
+	O_32VDD_4Hn   <= sl_32VDD_4Hn;
 
 	sl_VMP0       <= I_VMP0;
 	sl_VMP1       <= I_VMP1;
@@ -345,12 +336,14 @@ begin
 	-- 7FH
 	sl_VPACKn <= sl_PFRAMn and sl_ANMORAMn;
 
+	-- Verified on PCB by Colin Davies (ColinD - UKVAC), pin 11 of 4EF (74S74) labelled /4H/8HCLR goes to pin 6 of 12D (74S20) labelled /4H/8HCLK
 	p_4EF_1 : process
 	begin
-		wait until falling_edge(I_CLK);
+		wait until falling_edge(I_CLK); -- must be falling edge or AN doesnt display properly
 		if sl_VPACKCLRn = '0' then
 			sl_ANMORAMn <= '1';
-		elsif sl_4Hn_8Hn_CLK = '0' then
+--		elsif sl_4Hn_8Hn_CLK = '0' then  -- FIXME SCHEMATIC DEVIATION - with sl_4Hn_8Hn_CLK the T-11 writes to ANMO RAM occur too early, so we use sl_4H_8Hn_CLK to delay the /WE signal
+		elsif sl_4H_8Hn_CLK = '0' then
 			sl_ANMORAMn <= sl_ANMOREQn or sl_MEMDONE;
 		end if;
 	end process;
@@ -358,7 +351,7 @@ begin
 	p_4EF_2 : process
 	begin
 		wait until rising_edge(I_CLK);
-		sl_VPACKCLRn <= (not sl_1H) or (not sl_2H) or sl_VPACKn;
+		sl_VPACKCLRn <= sl_VPACKn or not sl_1H_2H;
 	end process;
 
 	sl_ANMOREQn <= sl_MEMREQn or     sl_VMP1; -- AN MO memory select
@@ -414,18 +407,25 @@ begin
 	sl_32H_strobe  <= '1' when slv_H_ctr(5 downto 0) =     "011111" else '0';
 	sl_512H_strobe <= '1' when slv_H_ctr(9 downto 0) = "0111111111" else '0';
 
-	sl_NIBLOAD     <= sl_1H   and sl_2H  ; -- 11D NIBLOAD*A and NIBLOAD*B are the same exact signal
-	sl_4H8H        <= sl_4H   and sl_8H  ; -- 11D
 	sl_BLNKCLK     <= not ((not sl_1H) and sl_2H); -- 12B also gated by /CLK
 	sl_384V        <= sl_128V and sl_256V; -- 5BC
 
---	sl_4Hn_8Hn_CLK <= not (sl_NIBLOAD and (not sl_4H) and (not sl_8H)); -- 12D also gated by /CLK FIXME ORIGINAL, see below change
-	sl_4Hn_8H_CLK  <= not (sl_NIBLOAD and (not sl_4H) and (    sl_8H)); -- 11M also gated by /CLK
-	sl_4Hn_8Hn_CLK <= not (sl_NIBLOAD and (    sl_4H) and (not sl_8H)); -- T11 to ANMO RAM writes occur too early, this delays the /WE signal
-	sl_WORDn       <= not (sl_NIBLOAD and (    sl_4H) and (    sl_8H)); -- 11CD
+	sl_1H_2H       <= sl_1H   and sl_2H  ; -- 11D NIBLOAD*A and NIBLOAD*B are copies of the exact same signal so they are merged
 
-	sl_FIRSTWORDn  <= not (sl_NIBLOAD and (    sl_4H) and (    sl_8H) and (not sl_512H) and sl_512HD16H); -- 12D
-	sl_BYTELDn     <= not (sl_NIBLOAD and (    sl_4H)  ); -- 10BC
+	-- FIXME - here we create all phases of 4H and 8H for debugging purposes
+	sl_4Hn_8Hn <= (not sl_4H) and (not sl_8H);
+	sl_4Hn_8H  <= (not sl_4H) and (    sl_8H);
+	sl_4H_8Hn  <= (    sl_4H) and (not sl_8H);
+	sl_4H_8H   <= (    sl_4H) and (    sl_8H); -- 11D
+	sl_4Hn_8Hn_CLK <= not (sl_1H_2H and sl_4Hn_8Hn); -- 12D also gated by /CLK
+	sl_4Hn_8H_CLK  <= not (sl_1H_2H and sl_4Hn_8H ); -- 11M also gated by /CLK
+	sl_4H_8Hn_CLK  <= not (sl_1H_2H and sl_4H_8Hn ); -- 
+	sl_4H_8H_CLK   <= not (sl_1H_2H and sl_4H_8H  ); -- 
+
+	sl_WORDn       <= not (sl_1H_2H and sl_4H_8H); -- 11CD
+
+	sl_FIRSTWORDn  <= not (sl_1H_2H and sl_4H_8H and (not sl_512H) and sl_512HD_16H); -- 12D
+	sl_BYTELDn     <= not (sl_1H_2H and (    sl_4H)  ); -- 10BC
 	sl_VRESETn     <= not (sl_32V and sl_384V); -- 7EF
 	sl_HSLDn       <= not (sl_64H and sl_512H); -- 7EF
 	sl_VPULSE      <= (sl_4V) and (not sl_8V) and (not sl_16V); -- 5BC
@@ -444,10 +444,11 @@ begin
 	p_8F : process
 	begin
 		wait until rising_edge(I_CLK);
+		sl_VSYNC_last <= sl_VSYNC;
 		if sl_512H = '0' then
-			sl_HSYNCn <= '1';
+			sl_HSYNC <= '0';
 		elsif sl_32H_strobe = '1' then
-			sl_HSYNCn <= sl_64H;
+			sl_HSYNC <= not sl_64H;
 		end if;
 
 		if sl_384V = '0' then 
@@ -478,7 +479,7 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_4H_strobe = '1' then
-			sl_8HD4H <= sl_8H;
+			sl_8HD_4H <= sl_8H;
 		end if;
 	end process;
 
@@ -486,7 +487,7 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_4H_strobe = '1' then
-			sl_512HD4H <= sl_512H;
+			sl_512HD_4H <= sl_512H;
 		end if;
 	end process;
 
@@ -494,7 +495,7 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_16H_strobe = '1' then
-			sl_512HD16H <= sl_512H;
+			sl_512HD_16H <= sl_512H;
 		end if;
 	end process;
 
@@ -505,7 +506,7 @@ begin
 	-- 2B 2FH 2EF 2N 2H 2M
 	slv_ANMOA <=
 		"11" & slv_LLA & '0'                          when sl_8H = '0' and sl_4H = '0' else -- 00 -> in0 Linked List Address with lsb=0
-		slv_VPA(12 downto 2)                          when sl_8H = '0' and sl_4H = '1' else -- 01 -> in1 T11 address for read/write ANMO RAM
+		slv_VPA(12 downto 2)                          when sl_8H = '0' and sl_4H = '1' else -- 01 -> in1 T-11 address for read/write ANMO RAM
 		slv_V_ctr(8 downto 3) & slv_H_ctr(8 downto 4) when sl_8H = '1' and sl_4H = '0' else -- 10 -> in2 Address from H/V counters
 		"11" & slv_LLA & '1'                          when sl_8H = '1' and sl_4H = '1' else -- 11 -> in3 Linked List Address with lsb=1
 		(others=>'0');
@@ -539,16 +540,16 @@ begin
 	-- 4KL 3S 4PR 2DE
 	p_4KL_3S_4PR_2DE : process
 	begin
-		wait until falling_edge(I_CLK);
+		wait until rising_edge(I_CLK);
 		if sl_4Hn_8Hn_CLK = '0' then
-			sl_MOHLDIS   <= slv_ANMOD(31);
-			sl_MOHFLIP   <= slv_ANMOD(30);
-			slv_MOSIZ(2) <= slv_ANMOD(29); -- 2DE
-			slv_MOSIZ(1) <= slv_ANMOD(28);
-			slv_MOSIZ(0) <= slv_ANMOD(27);
-			slv_MOPIC    <= slv_ANMOD(26 downto 16);
-			slv_MOV      <= slv_ANMOD(14 downto  6);
-			slv_2DE      <= slv_ANMOD( 2 downto  0); -- 2DE
+			sl_MOHLDIS   <= slv_ANMOD(31); -- MOH load disable
+			sl_MOHFLIP   <= slv_ANMOD(30); -- H flip
+			slv_MOSIZ(2) <= slv_ANMOD(29); -- \
+			slv_MOSIZ(1) <= slv_ANMOD(28); --  > Y tiles-1
+			slv_MOSIZ(0) <= slv_ANMOD(27); -- /
+			slv_MOPIC    <= slv_ANMOD(26 downto 16); -- Tile index low 11 bits
+			slv_MOV      <= slv_ANMOD(14 downto  6); -- Y position (bit 15 definitely unused unlike what MAME shows)
+			slv_2DE      <= slv_ANMOD( 2 downto  0); -- Tile index high 3 bits
 		end if;
 	end process;
 
@@ -556,36 +557,36 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_8Hn_strobe = '1' then
-			sl_MOPRI1 <= slv_ANMOD(31);
-			sl_MOPRI0 <= slv_ANMOD(30);
-			sl_MOCOL1 <= slv_ANMOD(29);
-			sl_MOCOL0 <= slv_ANMOD(28);
+			sl_MOPRI1 <= slv_ANMOD(31); -- \
+			sl_MOPRI0 <= slv_ANMOD(30); -- / Priority
+			sl_MOCOL1 <= slv_ANMOD(29); -- \
+			sl_MOCOL0 <= slv_ANMOD(28); -- / Palette (color) select
 		end if;
 	end process;
 
 	-- Adders 4J 4K and gate 11R
 	slv_sum_4J_4K <= slv_MOV(8 downto 1) + (slv_V_ctr(8 downto 1) + (x"00" & (sl_1V or slv_MOV(0))) );
 
-	-- PROM 4M7N 82S131, output affects sl_MOVMATCHn and MOROMA(8 downto 6)
-	slv_PROM_4MN_ADDR <= slv_MOSIZ(2 downto 0) & slv_sum_4J_4K(5 downto 3) & slv_MOPIC(2 downto 0);
-	slv_PROM_4MN_DATA <= PROM_4MN(to_integer(unsigned(slv_PROM_4MN_ADDR)));
+	-- PROM 82S131, output affects sl_MOVMATCHn and MOROMA(8 downto 6)
+	PROM_VID : entity work.PROM_5P port map (CLK => I_CLK, ADDR => slv_PROMA, DATA => slv_PROMD);
+	slv_PROMA <= slv_MOSIZ(2 downto 0) & slv_sum_4J_4K(5 downto 3) & slv_MOPIC(2 downto 0);
 
 	p_4NP_4M_2K : process
 	begin
-		wait until falling_edge(I_CLK);
+		wait until rising_edge(I_CLK);
 		if sl_4Hn_8H_CLK = '0' then
-			sl_MOVMATCHn <= not (slv_sum_4J_4K(7) and slv_sum_4J_4K(6) and slv_PROM_4MN_DATA(3) and not sl_384V);
+			sl_MOVMATCHn <= not (slv_sum_4J_4K(7) and slv_sum_4J_4K(6) and slv_PROMD(3) and not sl_384V);
 			sl_MOHFLIPD <= sl_MOHFLIP;
-			slv_MOROMA(16 downto 2) <= slv_MOPIC(10 downto 3) & slv_PROM_4MN_DATA(2 downto 0) & slv_sum_4J_4K(2 downto 0) & (slv_MOV(0) xor (not sl_1V)); -- 11P
+			slv_MOROMA(16 downto 2) <= slv_MOPIC(10 downto 3) & slv_PROMD(2 downto 0) & slv_sum_4J_4K(2 downto 0) & (slv_MOV(0) xor (not sl_1V)); -- 11P
 		end if;
 	end process;
 
-	slv_MOROMA(1) <= sl_MOHFLIPD xor (not sl_8HD4H); -- 11P
+	slv_MOROMA(1) <= sl_MOHFLIPD xor (not sl_8HD_4H); -- 11P
 	slv_MOROMA(0) <= sl_MOHFLIPD xor (not    sl_4H); -- 11P
 
 	p_2J : process
 	begin
-		wait until falling_edge(I_CLK);
+		wait until rising_edge(I_CLK);
 		if sl_4Hn_8H_CLK = '0' then
 			slv_MOROMA(19 downto 17) <= slv_2DE;
 		end if;
@@ -605,10 +606,10 @@ begin
 	p_4H : process
 	begin
 		wait until rising_edge(I_CLK);
-		if (sl_512HD4H and (not sl_512H)) = '1' then -- 11CD
+		if (sl_512HD_4H and (not sl_512H)) = '1' then -- 11CD
 			slv_LLA <= (others=>'0');
 		elsif sl_8Hn_strobe = '1' then
-			slv_LLA <= slv_ANMOD(26 downto 19);
+			slv_LLA <= slv_ANMOD(26 downto 19); -- Link to next object FIXME MAME shows bits 22:15 not 26:19
 		end if;
 	end process;
 
@@ -617,7 +618,7 @@ begin
 	-- Alphanumeric ROM Addressing
 	p_3P_3T_3R_4RS : process
 	begin
-		wait until falling_edge(I_CLK);
+		wait until rising_edge(I_CLK);
 		if sl_4Hn_8H_CLK = '0' then
 			slv_3P_3T   <= slv_ANMOD(15 downto  0);
 			slv_3R_4R_S <= slv_ANMOD(31 downto 16);
@@ -625,8 +626,8 @@ begin
 	end process;
 
 	-- 3P 3T vs 3R 4RS Output Control
-	slv_ANC(2 downto 0)     <=        slv_3R_4R_S(15 downto 13) when sl_8HD4H = '0' else slv_3P_3T(15 downto 13);
-	slv_ANROMA(15 downto 4) <= "00" & slv_3R_4R_S( 9 downto  0) when sl_8HD4H = '0' else slv_3P_3T(11 downto  0);  -- FIXME only slv_3R_4R_S(9 downto 0) connected in schema
+	slv_ANC(2 downto 0)     <=        slv_3R_4R_S(15 downto 13) when sl_8HD_4H = '0' else slv_3P_3T(15 downto 13);
+	slv_ANROMA(15 downto 4) <= "00" & slv_3R_4R_S( 9 downto  0) when sl_8HD_4H = '0' else slv_3P_3T(11 downto  0);  -- FIXME only slv_3R_4R_S(9 downto 0) connected in schema
 
 	-- Playfield Data Latch
 	sl_PFWRn    <= sl_PFRAMn or (    sl_VP_R_Wn); -- 2CD
@@ -640,9 +641,9 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_4Hn_strobe = '1' then
-			sl_32VDD4Hn <= sl_32VD4Hn;
-			sl_32VD4Hn  <= sl_32V;
-			sl_384VD4Hn <= sl_384V;
+			sl_32VDD_4Hn <= sl_32VD_4Hn;
+			sl_32VD_4Hn  <= sl_32V;
+			sl_384VD_4Hn <= sl_384V;
 			slv_PFCOL( 2 downto 0) <= slv_PFC(2 downto 0);
 			slv_PFPRIO(1 downto 0) <= slv_PFP(1 downto 0);
 		end if;
@@ -677,12 +678,14 @@ begin
 
 	-- Alphanumeric ROM
 	-- ROMs moved outside this module
+	O_ANROMA   <= (not slv_ANROMA(15 downto 14)) & slv_ANROMA(13 downto 4) & sl_4V & sl_2V & sl_1V & (not sl_4H);
+	slv_ANROMD <= I_ANROMD;
 
 	-- loadable serial shifters preset to always shift up
 	p_7S_7T : process
 	begin
 		wait until rising_edge(I_CLK);
-		if sl_NIBLOAD = '1' then
+		if sl_1H_2H = '1' then -- NIBLOAD
 			slv_7S <= slv_ANROMD(7 downto 4);
 			slv_7T <= slv_ANROMD(3 downto 0);
 		else
@@ -709,29 +712,38 @@ begin
 
 	-- Motion Object ROM
 	-- ROMs moved outside this module
+	O_MOROMA   <= slv_MOROMA;
+	slv_MOROMD <= I_MOROMD;
 
 	-- when MOVMATCHn high all outputs are high
 	-- when MOHFLIPD high we bit reverse or else straight through
-	-- the 74LS158 is an inverting muxer so we must also invert the input data
+	-- the 74LS158 is an inverting muxer so we must also invert the data
 	slv_7HJ <=
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD(12) & slv_MOROMD(13) & slv_MOROMD(14) & slv_MOROMD(15)) when sl_MOHFLIPD = '1' else
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD(15 downto 12);
 	slv_7J  <= 
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD( 8) & slv_MOROMD( 9) & slv_MOROMD(10) & slv_MOROMD(11)) when sl_MOHFLIPD = '1' else
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD(11 downto  8);
-
 	slv_7M <=
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD( 4) & slv_MOROMD( 5) & slv_MOROMD( 6) & slv_MOROMD( 7)) when sl_MOHFLIPD = '1' else
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD( 7 downto  4);
 	slv_7N  <= 
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD( 0) & slv_MOROMD( 1) & slv_MOROMD( 2) & slv_MOROMD( 3)) when sl_MOHFLIPD = '1' else
 		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD( 3 downto  0);
+-- FIXME can we do better?
+--	slv_MOROMD <= I_MOROMD when sl_MOVMATCHn = '0' else (others=> '1'); -- when MOVMATCHn is high all outputs are high due to /OE at 7HJ 7J 7M 7N
+--	slv_7HJ <= not (slv_MOROMD(12) & slv_MOROMD(13) & slv_MOROMD(14) & slv_MOROMD(15)) when sl_MOHFLIPD = '1' else not slv_MOROMD(15 downto 12);
+--	slv_7J  <= not (slv_MOROMD( 8) & slv_MOROMD( 9) & slv_MOROMD(10) & slv_MOROMD(11)) when sl_MOHFLIPD = '1' else not slv_MOROMD(11 downto  8);
+--	slv_7M  <= not (slv_MOROMD( 4) & slv_MOROMD( 5) & slv_MOROMD( 6) & slv_MOROMD( 7)) when sl_MOHFLIPD = '1' else not slv_MOROMD( 7 downto  4);
+--	slv_7N  <= not (slv_MOROMD( 0) & slv_MOROMD( 1) & slv_MOROMD( 2) & slv_MOROMD( 3)) when sl_MOHFLIPD = '1' else not slv_MOROMD( 3 downto  0);
+
+
 
 	-- loadable serial shifters preset to always shift up
 	p_7K_7L_7P_7R : process
 	begin
 		wait until rising_edge(I_CLK);
-		if sl_NIBLOAD = '1' then
+		if sl_1H_2H = '1' then -- NIBLOAD
 			slv_7K <= slv_7HJ;
 			slv_7L <= slv_7J;
 			slv_7P <= slv_7M;
@@ -748,12 +760,14 @@ begin
 
 	-- Playfield ROM
 	-- ROMs moved outside this module
+	O_PFROMA   <= slv_PFBS(2 downto 1) & (not slv_PFBS(3)) & slv_PFBS(0) & slv_PFROMA(13 downto 4) & slv_xVS(2 downto 0) & (not sl_4H);
+	slv_PFROMD <= I_PFROMD;
 
 	-- loadable serial shifters preset to always shift up
 	p_8A_8B_8BC_8CD : process
 	begin
 		wait until falling_edge(I_CLK); -- inverted by 10BC
-		if sl_NIBLOAD = '1' then
+		if sl_1H_2H = '1' then -- NIBLOAD
 			slv_8A  <= slv_PFROMD(15 downto 12);
 			slv_8B  <= slv_PFROMD(11 downto  8);
 			slv_8BC <= slv_PFROMD( 7 downto  4);
@@ -783,7 +797,7 @@ begin
 		I_OENn        => sl_0OF3Vn,
 		I_MOHLDn      => sl_MOHLD0n,
 		I_MOHRn       => sl_MOHR0n,
-		I_ADDR        => slv_ANMOD(15 downto 6),
+		I_ADDR        => slv_ANMOD(15 downto 6), -- X position
 		I_DATA(7)     => sl_MOPRI1, -- MOPRI1
 		I_DATA(6)     => sl_MOPRI0, -- MOPRI0
 		I_DATA(5)     => sl_MOCOL1, -- MOCOL1
@@ -802,7 +816,7 @@ begin
 		I_OENn        => sl_1OF3Vn,
 		I_MOHLDn      => sl_MOHLD1n,
 		I_MOHRn       => sl_MOHR1n,
-		I_ADDR        => slv_ANMOD(15 downto 6),
+		I_ADDR        => slv_ANMOD(15 downto 6), -- X position
 		I_DATA(7)     => sl_MOPRI1, -- MOPRI1
 		I_DATA(6)     => sl_MOPRI0, -- MOPRI0
 		I_DATA(5)     => sl_MOCOL1, -- MOCOL1
@@ -821,7 +835,7 @@ begin
 		I_OENn        => sl_2OF3Vn,
 		I_MOHLDn      => sl_MOHLD2n,
 		I_MOHRn       => sl_MOHR2n,
-		I_ADDR        => slv_ANMOD(15 downto 6),
+		I_ADDR        => slv_ANMOD(15 downto 6), -- X position
 		I_DATA(7)     => sl_MOPRI1, -- MOPRI1
 		I_DATA(6)     => sl_MOPRI0, -- MOPRI0
 		I_DATA(5)     => sl_MOCOL1, -- MOCOL1
@@ -892,8 +906,8 @@ begin
 	p_5CD_3CD_4DE : process
 	begin
 		wait until rising_edge(I_CLK);
-		sl_HSYNCn_last <= sl_HSYNCn;
-		if sl_HSYNCn_last = '0' and sl_HSYNCn = '1' then
+		sl_HSYNC_last <= sl_HSYNC;
+		if sl_HSYNC_last = '1' and sl_HSYNC = '0' then
 			if (sl_5CD_3CD_4DE_LDENn and sl_VRESETn) = '0' then
 				slv_xVS <= slv_VSx;     -- load
 			else
@@ -953,9 +967,10 @@ begin
 	slv_PRI_sel <= sl_PF_ANMOn & (sl_ANPIX1D or sl_ANPIX0D);
 
 	-- 9H 10E 10D 11E
+	-- Verified on PCB by Colin Davies (ColinD - UKVAC), 10E (74S153) pin 5 connected to pins 1 ,8 and 15 (GND) whereas schematic shows it unconnected
 	slv_PRIO_LOGIC <=
 		(sl_PF_ANMOn)    &    (slv_PRI_sel(0) & sl_LBCOL1  & sl_LBCOL0  & not sl_LBPIX3  & not sl_LBPIX2  & not sl_LBPIX1  & not sl_LBPIX0) when slv_PRI_sel = "00" else -- MO
-		(sl_PF_ANMOn)    &    ('1'            & '0'        & sl_ANCOL2D &     sl_ANCOL1D &     sl_ANCOL0D &     sl_ANPIX1D &    sl_ANPIX0D) when slv_PRI_sel = "01" else -- AN FIXME 10E pin 1 is floating but drives CRA5 !!!
+		(sl_PF_ANMOn)    &    ('1'            & '0'        & sl_ANCOL2D &     sl_ANCOL1D &     sl_ANCOL0D &     sl_ANPIX1D &    sl_ANPIX0D) when slv_PRI_sel = "01" else -- AN
 		(sl_PF_ANMOn)    &    (sl_PFCOL2D     & sl_PFCOL1D & sl_PFCOL0D &     sl_PFPIX3D &     sl_PFPIX2D &     sl_PFPIX1D &    sl_PFPIX0D);                             -- PF
 
 -------- Sheet 15A --------
@@ -1042,7 +1057,7 @@ begin
 
 	p_12A : process
 	begin
-		wait until falling_edge(I_CLK);
+		wait until rising_edge(I_CLK);
 		if sl_BLNKCLK = '0'  then
 			sl_BLANKn <= not sl_13A_Q;
 		end if;
@@ -1055,9 +1070,9 @@ begin
 	O_VIDEO_G   <= slv_G when sl_GONDn = '0' else (others=>'0');
 	O_VIDEO_B   <= slv_B when sl_BONDn = '0' else (others=>'0');
 	O_VIDEO_I   <= slv_Z when sl_ZONDn = '0' else (others=>'0');
-	O_COMPSYNCn <= not (sl_VSYNC or not sl_HSYNCn); -- open collector inverter with 220R pullup
-	O_HSYNC     <= not sl_HSYNCn; -- open collector buffer with 220R pullup
-	O_VSYNC     <=     sl_VSYNC;  -- open collector buffer with 220R pullup
+	O_COMPSYNCn <= not (sl_VSYNC or sl_HSYNC); -- open collector inverter with 220R pullup
+	O_HSYNC     <=  sl_HSYNC; -- open collector buffer with 220R pullup
+	O_VSYNC     <=  sl_VSYNC; -- open collector buffer with 220R pullup
 
 -- synthesis translate_off
 	p_DBG : process
@@ -1066,15 +1081,51 @@ begin
 		variable	s				: line;
 	begin
 		wait until rising_edge(I_CLK);
-		if (sl_1H and sl_2H) = '1' then
-			HWRITE(s, slv_ANMOA);
-			WRITE(s, string'(": "));
-			HWRITE(s, slv_ANMOD);
+		if sl_VSYNC_last = '0' and sl_VSYNC = '1' then
+			WRITE(s, string'("VSYNC rise ## ")); WRITE(s, now);
+			WRITELINE(ofile, s);
+		end if;
+		if sl_VSYNC_last = '1' and sl_VSYNC = '0' then
+			WRITE(s, string'("VSYNC fall ## ")); WRITE(s, now);
+			WRITELINE(ofile, s);
+		end if;
+		if sl_HSYNC_last = '0' and sl_HSYNC = '1' then
+			WRITE(s, string'("HSYNC rise ## ")); WRITE(s, now);
+			WRITELINE(ofile, s);
+		end if;
+		if sl_HSYNC_last = '1' and sl_HSYNC = '0' then
+			WRITE(s, string'("HSYNC fall ## ")); WRITE(s, now);
+			WRITELINE(ofile, s);
+		end if;
 
-			WRITE(s, string'(" PROM "));
-			HWRITE(s, '0' & slv_PROM_4MN_ADDR(5 downto 3));
-			WRITE(s, string'(": "));
-			HWRITE(s, slv_PROM_4MN_DATA);
+		if (sl_1H_2H) = '1' then -- phase 2 addr selectors
+			if sl_4H_8H_CLK   = '0' then -- LL addr lsb=1
+				WRITE(s, string'(" SEL3 "));
+			end if;
+			if sl_4Hn_8H_CLK  = '0' then -- T-11 r/w
+				WRITE(s, string'(" SEL2 "));
+			end if;
+			if sl_4H_8Hn_CLK  = '0' then -- V/H counters
+				WRITE(s, string'(" SEL1 "));
+			end if;
+			if sl_4Hn_8Hn_CLK = '0' then -- LL addr lsb=0
+				WRITE(s, string'(" SEL0 "));
+			end if;
+
+			WRITE(s, string'(" ANMOA " )); HWRITE(s, slv_ANMOA );
+			WRITE(s, string'(" ANMOD " )); HWRITE(s, slv_ANMOD );
+
+			WRITE(s, string'(" PROMA " )); HWRITE(s, slv_PROMA );
+			WRITE(s, string'(" PROMD " )); HWRITE(s, slv_PROMD );
+
+			WRITE(s, string'(" MOROMA ")); HWRITE(s, slv_MOROMA);
+			WRITE(s, string'(" MOROMD ")); HWRITE(s, slv_MOROMD);
+
+			WRITE(s, string'(" MOV "   )); HWRITE(s, slv_MOV   );
+			WRITE(s, string'(" VCTR "  )); HWRITE(s, slv_V_ctr );
+
+			WRITE(s, string'(" MOSIZ " )); HWRITE(s, slv_MOSIZ );
+			WRITE(s, string'(" MOPIC " )); HWRITE(s, slv_MOPIC );
 
 			WRITE(s, string'(" ## ")); WRITE(s, now);
 			WRITELINE(ofile, s);

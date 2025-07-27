@@ -102,8 +102,11 @@ entity FPGA_ATARISYS2 is
 end FPGA_ATARISYS2;
 
 architecture RTL of FPGA_ATARISYS2 is
-signal slv_adc_data : std_logic_vector( 7 downto 0);
-signal slv_adc_addr : std_logic_vector( 2 downto 0);
+signal
+	slv_T11_DB,
+	slv_6502_DB,
+	slv_adc_data		: std_logic_vector( 7 downto 0);
+signal slv_adc_addr		: std_logic_vector( 2 downto 0);
 signal
 	slv_VPDI,
 	slv_VPDO,
@@ -112,26 +115,28 @@ signal
 	slv_data_PAGE0,
 	slv_data_PAGE1,
 	slv_data_PAGE2,
-	slv_data_PAGE3	: std_logic_vector(15 downto 0);
-signal slv_VPA      : std_logic_vector(12 downto 1);
-signal slv_ROM_ADDR : std_logic_vector(16 downto 1);
+	slv_data_PAGE3		: std_logic_vector(15 downto 0);
+signal slv_VPA			: std_logic_vector(12 downto 1);
+signal slv_ROM_ADDR		: std_logic_vector(16 downto 1);
 signal
 	sl_SPEED,
 	sl_P2IRQCLRn,
+	sl_P2IRQn,
+	sl_TMS_CLK_ENA,
+	sl_P1TALK,
+	sl_P2TALK,
+	sl_P2PORTRDn,
+	sl_P2PORTWRn,
+	sl_RST6502n,
+	sl_P2RESETn,
 	sl_VMP0,
 	sl_VMP1,
 	sl_R_WLn,
 	sl_MEMREQn,
-	sl_TMS_CLK_ENA,
 	sl_COLORAMn,
 	sl_VSCROLLn,
 	sl_HSCROLLn,
 	sl_COUT,
-	sl_P1TALK,
-	sl_P2TALK,
-	sl_P2PORTWRn,
-	sl_RST6502n,
-	sl_P2RESETn,
 	sl_MEMDONE,
 	sl_STANDALONEn,
 	sl_VIDMEMACKn,
@@ -139,7 +144,7 @@ signal
 	sl_32V,
 	sl_ROM_SLAPn,
 	sl_ROM_PAGEn
-	: std_logic := '1';
+						: std_logic := '1';
 begin
 	-- ROMs
 	ROM_SLAPSH : entity work.ROM_CPU_N07 port map ( CLK => I_CLK_20M0, DATA => slv_data_SLAPS(15 downto 8), ADDR => slv_ROM_ADDR(14 downto 1) ); --n07 0x008001 HI
@@ -173,17 +178,20 @@ begin
 		I_P2IRQCLRn    => sl_P2IRQCLRn,
 		O_TMS_CLK_ENA  => sl_TMS_CLK_ENA,
 		O_LETA_CLK_ENA => sl_TMS_CLK_ENA,
+		O_P2IRQn       => sl_P2IRQn,
 
 		I_ROM_DATA     => slv_ROM_DATA,
 		O_ROM_ADDR     => slv_ROM_ADDR,
---		O_ROM_SLAPn    => sl_ROM_SLAPn,
---		O_ROM_PAGEn    => sl_ROM_PAGEn,
 
 		O_ADC_ADDR     => slv_adc_addr,
 		I_ADC_DATA     => slv_adc_data,
 
+		O_T11_DB       => slv_T11_DB,
+		I_6502_DB      => slv_6502_DB,
+
 		O_P2RESETn     => sl_P2RESETn,
 		O_RST6502n     => sl_RST6502n,
+		I_P2PORTRDn    => sl_P2PORTRDn,
 		I_P2PORTWRn    => sl_P2PORTWRn,
 		O_P1TALK       => sl_P1TALK,
 		O_P2TALK       => sl_P2TALK,
@@ -223,8 +231,8 @@ begin
 		O_VPD          => slv_VPDI,
 
 		O_VPACKn       => sl_VIDMEMACKn,
-		O_384VD4Hn     => sl_VBLANK,
-		O_32VDD4Hn     => sl_32V,
+		O_384VD_4Hn    => sl_VBLANK,
+		O_32VDD_4Hn    => sl_32V,
 		O_STANDALONEn  => sl_STANDALONEn,
 
 		O_ANROMA       => open,
@@ -256,18 +264,23 @@ begin
 
 		O_SNDROMA      => open, --: out std_logic_vector(15 downto 0); -- address 4000-FFFF
 		I_SNDROMD      => (others=>'0'),--: in  std_logic_vector( 7 downto 0);
+		O_P2PORTRDn    => sl_P2PORTRDn,
 		O_P2PORTWRn    => sl_P2PORTWRn,
 
 		O_SPEED        => sl_SPEED,
 		O_P2IRQCLRn    => sl_P2IRQCLRn,
+		I_P2IRQn       => sl_P2IRQn,
+
+		O_6502_DB      => slv_6502_DB,
+		I_T11_DB       => slv_T11_DB,
 
 		O_CNTRL        => open,
 		O_CNTRR        => open,
 		O_LED1         => open,
 		O_LED2         => open,
 
-		O_AUDIO1       => open,
-		O_AUDIO2       => open,
+		O_AUDIO_L      => open,
+		O_AUDIO_R      => open,
 
 		I_P2RESETn     => sl_P2RESETn,
 		I_RST6502n     => sl_RST6502n,

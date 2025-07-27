@@ -9,7 +9,7 @@
 --	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 --
 -- For full details, see the GNU General Public License at www.gnu.org/licenses
--- Atari System-2 Main CPU circuit, based on SP-308 schematic
+-- Atari System-2 Main CPU circuit, all chip designations are based on SP-308 schematic
 
 library ieee;
 	use ieee.std_logic_1164.all;
@@ -25,30 +25,37 @@ entity MAIN is
 		I_SLAP_TYPE      : in  integer range 100 to 118; -- slapstic type can be changed dynamically
 		I_CLK            : in  std_logic; -- 20MHz
 		I_PWRONRST       : in  std_logic; -- Power On Reset active high
-		I_SELFTESTn      : in  std_logic;
-		I_WDISn          : in  std_logic; -- Watchdog disable active low
+		I_SELFTESTn      : in  std_logic; -- Places board in Self Test mode when low
 		I_SW             : in  std_logic_vector( 6 downto 1);
-		I_SPEED          : in  std_logic;
-		I_P2IRQCLRn      : in  std_logic;
-		O_TMS_CLK_ENA    : out std_logic;
-		O_LETA_CLK_ENA   : out std_logic;
+		I_WDISn          : in  std_logic; -- Watchdog disable active low
+		I_SPEED          : in  std_logic; -- TMS clock speed selector 0=625Khz 1=833Khz
+		O_TMS_CLK_ENA    : out std_logic; -- TMS clock enable selectable 625Khz or 833Khz
+		O_LETA_CLK_ENA   : out std_logic; -- LETA clock enable 156Khz
 
 		-- external ROMs
-		I_ROM_DATA       : in  std_logic_vector(15 downto 0);
 		O_ROM_ADDR       : out std_logic_vector(16 downto 1);
---		O_ROM_SLAPn      : out std_logic;
---		O_ROM_PAGEn      : out std_logic;
+		I_ROM_DATA       : in  std_logic_vector(15 downto 0);
 
+		-- External ADC
 		O_ADC_ADDR       : out std_logic_vector( 2 downto 0);
 		I_ADC_DATA       : in  std_logic_vector( 7 downto 0);
 
-		O_P2RESETn       : out std_logic; -- 6502 misc reset
-		O_RST6502n       : out std_logic; -- 6502 CPU reset
-		I_P2PORTWRn      : in  std_logic;
+		-- Inter-processor data bus and comms signalling
 		O_P1TALK         : out std_logic;
 		O_P2TALK         : out std_logic;
 
-		-- Interboard connector P18
+		I_P2PORTRDn      : in  std_logic;
+		I_P2PORTWRn      : in  std_logic;
+
+		O_P2RESETn       : out std_logic; -- 6502 misc reset
+		O_RST6502n       : out std_logic; -- 6502 CPU reset
+		O_P2IRQn         : out std_logic;
+		I_P2IRQCLRn      : in  std_logic;
+
+		I_6502_DB        : in  std_logic_vector( 7 downto 0); -- 6502 to T-11
+		O_T11_DB         : out std_logic_vector( 7 downto 0); -- T-11 to 6502
+
+		-- Video Board Connector P18
 		O_VMP0           : out std_logic;
 		O_VMP1           : out std_logic;
 		O_R_WLn          : out std_logic;
@@ -58,13 +65,17 @@ entity MAIN is
 		O_HSCROLLn       : out std_logic;
 		O_COUT           : out std_logic;
 		O_MEMDONE        : out std_logic;
+
+		-- Video address and data bus
 		O_VPA            : out std_logic_vector(12 downto 1);
 		O_VPD            : out std_logic_vector(15 downto 0);
 		I_VPD            : in  std_logic_vector(15 downto 0);
-		I_STANDALONEn    : in  std_logic;
+
+		-- Video outbound control signals
 		I_VIDMEMACKn     : in  std_logic;
 		I_VBLANK         : in  std_logic;
-		I_32V            : in  std_logic
+		I_32V            : in  std_logic;
+		I_STANDALONEn    : in  std_logic
 	);
 end MAIN;
 
@@ -77,6 +88,7 @@ signal
 	sl_32Vn_last,
 	sl_3N1Qn,
 	sl_3N2Qn,
+	sl_P2IRQn,
 	sl_P2IRQCLRn,
 	sl_P2IRQCLRn_last,
 	sl_P1IRQENn,
@@ -120,7 +132,6 @@ signal
 	sl_RASn_last,
 	sl_HALTn,
 	sl_PFAILn,
-	sl_TMS_CLK_ENA,
 	sl_SLAPSTICn,
 	sl_VIDMEMACKn,
 	sl_VIDMEMACKn_last	: std_logic := '1';
@@ -140,6 +151,7 @@ signal
 	sl_P1IRQ2EN,
 	sl_P1IRQ3EN,
 	sl_RESET,
+	sl_TMS_CLK_ENA,
 	sl_VBLANK,
 	sl_VBLANK_last,
 	sl_MEMDONE			: std_logic := '0';
@@ -154,9 +166,9 @@ signal
 signal
 	slv_ROMADDR			: std_logic_vector(13 downto 0) := (others=>'0');
 signal
-	slv_DBI,
-	slv_DBO,
-	slv_6502_DBO,
+	slv_6502_DATA,
+	slv_T11_DBO,
+	slv_6502_DBI,
 	slv_AII				: std_logic_vector( 7 downto 0) := (others=>'0');
 signal
 	slv_PAD,
@@ -175,6 +187,7 @@ begin
 	sl_CLK         <= I_CLK;
 	O_P2RESETn     <= sl_P2RESETn;
 	O_RST6502n     <= sl_RST6502n;
+	sl_P2PORTRDn   <= I_P2PORTRDn;
 	sl_P2PORTWRn   <= I_P2PORTWRn;
 	O_ROM_ADDR     <=      "00" & slv_LA(14 downto 1) when sl_SLAPSTICn = '0' else slv_PAD(5 downto 2) & slv_LA(12 downto 1) when sl_PAGEDMEMn = '0';
 	O_TMS_CLK_ENA  <= sl_TMS_CLK_ENA;
@@ -183,9 +196,9 @@ begin
 	O_P1TALK       <= sl_P1TALK;
 	O_P2TALK       <= sl_P2TALK;
 	O_LETA_CLK_ENA <= slv_RWD_ctr(5);
-
---	O_ROM_SLAPn <= sl_SLAPSTICn;
---	O_ROM_PAGEn <= sl_PAGEDMEMn;
+	O_P2IRQn       <= sl_P2IRQn;
+	O_T11_DB       <= slv_T11_DBO;
+	slv_6502_DBI   <= I_6502_DB;
 
 	sl_PORn <= not I_PWRONRST; -- Power On Reset
 
@@ -198,10 +211,11 @@ begin
 		sl_RASn_last       <= sl_RASn;
 		sl_VBLANK_last     <= sl_VBLANK;
 		sl_P1IRQENn_last   <= sl_P1IRQENn;
-		sl_P1PORTWRn_last  <= sl_P1PORTWRn;
-		sl_P2PORTWRn_last  <= sl_P2PORTWRn;
 		sl_P1PORTRDn_last  <= sl_P1PORTRDn;
+		sl_P1PORTWRn_last  <= sl_P1PORTWRn;
 		sl_P2PORTRDn_last  <= sl_P2PORTRDn;
+		sl_P2PORTWRn_last  <= sl_P2PORTWRn;
+		sl_P2IRQCLRn_last  <= sl_P2IRQCLRn;
 		sl_P2RESETn_last   <= sl_P2RESETn;
 		sl_VIDMEMACKn_last <= sl_VIDMEMACKn;
 	end process;
@@ -313,13 +327,13 @@ begin
 
 	-- Processor Input Data Bus Multiplexer
 	slv_DALI <=
-		I_ROM_DATA           when (sl_SLAPSTICn and sl_PAGEDMEMn) = '0' else -- ROM Data Bus Transceivers from 4N 5H sheet 5B
-		slv_RAM_DATA         when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
-		slv_CTRL             when sl_CONTROLSn                    = '0' else -- Control Panel Input Buffers 2F, 5F sheet 6A
-		x"00" & slv_6502_DBO when sl_P1PORTRDn                    = '0' else -- 6502 Microprocessor Comms Latches 6E, 5E sheet 6A
-		x"00" & I_ADC_DATA   when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
-		x"36FF"              when sl_BCLRn                        = '0' else -- Mode Register as per chip 2F sheet 4B ("0011 0110 1111 1111")
-		I_VPD                when sl_VIDMEMn                      = '0' else -- Video Transceivers 1K 1J sheet 6B
+		I_ROM_DATA            when (sl_SLAPSTICn and sl_PAGEDMEMn) = '0' else -- ROM Data Bus Transceivers from 4N 5H sheet 5B
+		slv_RAM_DATA          when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
+		slv_CTRL              when sl_CONTROLSn                    = '0' else -- Control Panel Input Buffers 2F, 5F sheet 6A
+		x"00" & slv_6502_DATA when sl_P1PORTRDn                    = '0' else -- 6502 Microprocessor Comms Latches 6E, 5E sheet 6A
+		x"00" & I_ADC_DATA    when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
+		x"36FF"               when sl_BCLRn                        = '0' else -- Mode Register as per chip 2F sheet 4B ("0011 0110 1111 1111")
+		I_VPD                 when sl_VIDMEMn                      = '0' else -- Video Transceivers 1K 1J sheet 6B
 		(others=>'0');
 
 	-- T-11 Microprocessor
@@ -354,36 +368,36 @@ begin
 
 	-- Address Decoders
 
-	-- 3J
-	sl_P1IRQ3CLRn <= sl_P1IRQCLRn or not slv_LA(6) or not slv_LA(5);
-	sl_P1IRQ2CLRn <= sl_P1IRQCLRn or not slv_LA(6) or     slv_LA(5); 
-	sl_P2RESETn   <= sl_P1IRQCLRn or     slv_LA(6) or not slv_LA(5);
-	sl_P1IRQ0CLRn <= sl_P1IRQCLRn or     slv_LA(6) or     slv_LA(5);
-
 	-- 5L
-	sl_PAGEDMEMn <= sl_CASn or slv_LA(15) or not slv_LA(14)                  ; -- 4000-7FFF
-	sl_MEMREQn   <= sl_CASn or slv_LA(15) or     slv_LA(14) or not slv_LA(13); -- 2000-2FFF
-	sl_MISCn     <= sl_CASn or slv_LA(15) or     slv_LA(14) or     slv_LA(13); -- 0000-1FFF
+	sl_PAGEDMEMn <= sl_CASn or slv_LA(15) or not slv_LA(14)                  ; -- 4000-7FFF Processor ROM region
+	sl_MEMREQn   <= sl_CASn or slv_LA(15) or     slv_LA(14) or not slv_LA(13); -- 2000-3FFF Video RAM region (Banked)
+	sl_MISCn     <= sl_CASn or slv_LA(15) or     slv_LA(14) or     slv_LA(13); -- 0000-1FFF Local RAM and MISC I/O region
 
 	-- 3M
-	sl_P1PORTRDn <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or not slv_LA(11) or not slv_LA(10);
-	sl_CONTROLSn <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or not slv_LA(11) or     slv_LA(10);
-	sl_ADCn      <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or     slv_LA(11) or not slv_LA(10);
-	--           <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or     slv_LA(11) or     slv_LA(10);
-	--           <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or not slv_LA(11) or not slv_LA(10);
-	sl_WDCLRn    <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or not slv_LA(11) or     slv_LA(10);
-	sl_3MY1      <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or     slv_LA(11) or not slv_LA(10);    
-	sl_COLORAMn  <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or     slv_LA(11) or     slv_LA(10);
+	sl_P1PORTRDn <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or not slv_LA(11) or not slv_LA(10); -- 1C00-1FFF read  (Sound Response)
+	sl_CONTROLSn <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or not slv_LA(11) or     slv_LA(10); -- 1800-1BFF read  (Switch Inputs)
+	sl_ADCn      <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or     slv_LA(11) or not slv_LA(10); -- 1400-17FF read  (ADC)
+	--           <= sl_MISCn or sl_CASn or not sl_R_WLn or not slv_LA(12) or     slv_LA(11) or     slv_LA(10); -- 1000-13FF read  (Unused)
+	--           <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or not slv_LA(11) or not slv_LA(10); -- 1C00-1FFF write (Unused)
+	sl_WDCLRn    <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or not slv_LA(11) or     slv_LA(10); -- 1800-1BFF write (Watchdog Reset)
+	sl_3MY1      <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or     slv_LA(11) or not slv_LA(10); -- 1400-17FF write (ROM bank selects and Memory Mapped Registers)
+	sl_COLORAMn  <= sl_MISCn or sl_CASn or     sl_R_WLn or not slv_LA(12) or     slv_LA(11) or     slv_LA(10); -- 1000-13FF write (Palette RAM)
 
 	-- 4L
-	sl_VSCROLLn  <= sl_3MY1 or sl_CASn or not slv_LA(9) or not slv_LA(8) or not slv_LA(7);
-	sl_HSCROLLn  <= sl_3MY1 or sl_CASn or not slv_LA(9) or not slv_LA(8) or     slv_LA(7);
-	sl_P1PORTWRn <= sl_3MY1 or sl_CASn or not slv_LA(9) or     slv_LA(8) or not slv_LA(7);
-	sl_P1IRQENn  <= sl_3MY1 or sl_CASn or not slv_LA(9) or     slv_LA(8) or     slv_LA(7);
-	sl_P1IRQCLRn <= sl_3MY1 or sl_CASn or     slv_LA(9) or not slv_LA(8) or not slv_LA(7);
-	--           <= sl_3MY1 or sl_CASn or     slv_LA(9) or not slv_LA(8) or     slv_LA(7);
-	sl_ADCSTARTn <= sl_3MY1 or sl_CASn or     slv_LA(9) or     slv_LA(8) or not slv_LA(7);
-	sl_PMMUn     <= sl_3MY1 or sl_CASn or     slv_LA(9) or     slv_LA(8) or     slv_LA(7);
+	sl_VSCROLLn  <= sl_3MY1 or sl_CASn or not slv_LA(9) or not slv_LA(8) or not slv_LA(7); -- 1780-17FF V Scroll register
+	sl_HSCROLLn  <= sl_3MY1 or sl_CASn or not slv_LA(9) or not slv_LA(8) or     slv_LA(7); -- 1700-177F H Scroll Register
+	sl_P1PORTWRn <= sl_3MY1 or sl_CASn or not slv_LA(9) or     slv_LA(8) or not slv_LA(7); -- 1680-16FF Processor 1 Data Write Signal
+	sl_P1IRQENn  <= sl_3MY1 or sl_CASn or not slv_LA(9) or     slv_LA(8) or     slv_LA(7); -- 1600-167F Processor 1 IRQ Enables
+	sl_P1IRQCLRn <= sl_3MY1 or sl_CASn or     slv_LA(9) or not slv_LA(8) or not slv_LA(7); -- 1580-15FF Processor 1 IRQ Clear
+	--           <= sl_3MY1 or sl_CASn or     slv_LA(9) or not slv_LA(8) or     slv_LA(7); -- 1500-157F Unused
+	sl_ADCSTARTn <= sl_3MY1 or sl_CASn or     slv_LA(9) or     slv_LA(8) or not slv_LA(7); -- 1480-14FF ADC Start Conversion
+	sl_PMMUn     <= sl_3MY1 or sl_CASn or     slv_LA(9) or     slv_LA(8) or     slv_LA(7); -- 1400-147F Bank Selects
+
+	-- 3J
+	sl_P1IRQ3CLRn <= sl_P1IRQCLRn or not slv_LA(6) or not slv_LA(5); -- 15E0-15FF VBLANK IRQ reset
+	sl_P1IRQ2CLRn <= sl_P1IRQCLRn or not slv_LA(6) or     slv_LA(5); -- 15C0-15DF 32V IRQ reset
+	sl_P2RESETn   <= sl_P1IRQCLRn or     slv_LA(6) or not slv_LA(5); -- 15A0-15BF Sound CPU reset
+	sl_P1IRQ0CLRn <= sl_P1IRQCLRn or     slv_LA(6) or     slv_LA(5); -- 1580-159F Sound command read IRQ reset
 
 	sl_VIDMEMn <= sl_MEMREQn and sl_COLORAMn and sl_VSCROLLn and sl_HSCROLLn; -- 2P 5K
 
@@ -499,10 +513,10 @@ begin
 	begin
 		wait until rising_edge(sl_CLK);
 		if sl_P2PORTWRn_last = '0' and sl_P2PORTWRn = '1' then
-			slv_6502_DBO <= slv_DBO; -- 6E
+			slv_6502_DATA <= slv_6502_DBI; -- 6E
 		end if;
 		if sl_P1PORTWRn_last = '0' and sl_P1PORTWRn = '1' then
-			slv_DBI <= slv_DALO(7 downto 0); -- 5E
+			slv_T11_DBO <= slv_DALO(7 downto 0); -- 5E
 		end if;
 	end process;
 
@@ -534,11 +548,13 @@ begin
 		if sl_CLK_ENA = '1' then
 			if sl_P2IRQCLRn_last = '1' and sl_P2IRQCLRn = '0' then
 				slv_ctr_3F <= (others => '0');
-			elsif slv_RWD_ctr(11) = '1' then -- 2441 Hz
+			elsif slv_RWD_ctr = x"00FFF" then -- 10M/4096 = 2441 Hz clock enable
 				slv_ctr_3F <= slv_ctr_3F + 1;
 			end if;
 		end if;
 	end process;
+
+	sl_P2IRQn   <= not (slv_ctr_3F(3) and slv_ctr_3F(1)); -- 3F 3H
 
 -------- Sheet 7A --------
 
@@ -586,7 +602,7 @@ begin
 -- synthesis translate_off
 	p_DBG : process
 		type myfile is file of integer;
-		file		ofile			: TEXT open WRITE_MODE is "sim.log";
+		file		ofile			: TEXT open WRITE_MODE is "T11.log";
 		variable	s				: line;
 	begin
 		wait until rising_edge(sl_CLK);
@@ -598,6 +614,8 @@ begin
 			HWRITE(s,   '0' & slv_DALO( 8 downto  6));
 			HWRITE(s,   '0' & slv_DALO( 5 downto  3));
 			HWRITE(s,   '0' & slv_DALO( 2 downto  0));
+			WRITE(s, string'(" ## "));
+			HWRITE(s, slv_RAM_DATA);
 			WRITE(s, string'(" ## ")); WRITE(s, now);
 			WRITELINE(ofile, s);
 		end if;

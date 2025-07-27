@@ -1,4 +1,5 @@
--- PROM dumped on 2025-07-23 by Colin Davies (ColinD - UKVAC) from a Atari 1986 Championship Sprint Video PCB
+-- Atari 82S131 PROM chip at location 4M/N on SP-308 schematic used for sprite ROM address generation
+-- dumped 2025-07-23 by Colin Davies (ColinD - UKVAC) from a Atari 1986 Championship Sprint Video PCB
 
 library ieee;
 	use ieee.std_logic_1164.all;

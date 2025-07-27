@@ -10,7 +10,6 @@
 --
 -- For full details, see the GNU General Public License at www.gnu.org/licenses
 --
--- SLAPSTIC 137412-104 GAUNTLET
 --	This SLAPSTIC was translated from MAME "slapstic.cpp" source code pretty much verbatim :)
 -- The original MAME C++ code is left in as comments
 
