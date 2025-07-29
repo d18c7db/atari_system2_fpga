@@ -15,10 +15,7 @@ library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.std_logic_unsigned.all;
 	use ieee.numeric_std.all;
--- synthesis translate_off
-	use ieee.std_logic_textio.all;
-	use std.textio.all;
--- synthesis translate_on
+
 entity VIDEO is
 	port(
 		I_CLK            : in  std_logic; -- 16MHz
@@ -69,6 +66,7 @@ entity VIDEO is
 end VIDEO;
 
 architecture RTL of VIDEO is
+
 signal sl_STANDALONEn : std_logic := '0'; -- tied low on video processor board
 
 signal
@@ -121,7 +119,7 @@ signal
 	sl_WORDn,
 	sl_ZONDn,
 	sl_ZONn
-	: std_logic := '1';
+				: std_logic := '1';
 
 signal
 	sl_1H,
@@ -185,10 +183,10 @@ signal
 	sl_HSYNC_last,
 	sl_LBCOL0,
 	sl_LBCOL1,
-	sl_LBPIX0,
-	sl_LBPIX1,
-	sl_LBPIX2,
-	sl_LBPIX3,
+	sl_LBPIXn0,
+	sl_LBPIXn1,
+	sl_LBPIXn2,
+	sl_LBPIXn3,
 	sl_LBPRI0,
 	sl_LBPRI1,
 	sl_MEMDONE,
@@ -199,6 +197,16 @@ signal
 	sl_MOHLDIS,
 	sl_MOPRI0,
 	sl_MOPRI1,
+	sl_PFCOL0,
+	sl_PFCOL1,
+	sl_PFCOL2,
+	sl_PFC0,
+	sl_PFC1,
+	sl_PFC2,
+	sl_PFP0,
+	sl_PFP1,
+	sl_PFPRI0,
+	sl_PFPRI1,
 	sl_PFCOL0D,
 	sl_PFCOL1D,
 	sl_PFCOL2D,
@@ -215,25 +223,17 @@ signal
 	sl_VSYNC_last
 	: std_logic := '0';
 signal
-	slv_PFP,
-	slv_PFPRIO,
 	slv_PRI_sel,
-	slv_8J_sel          : std_logic_vector( 1 downto 0) := (others=>'0');
+	slv_8J_sel		: std_logic_vector( 1 downto 0) := (others=>'0');
 signal
 	slv_MOSIZ,
 	slv_2DE,
-	slv_PFC,
-	slv_PFCOL,
 	slv_ANC,
-	slv_8J_reg          : std_logic_vector( 2 downto 0) := "110";
+	slv_8J_reg		: std_logic_vector( 2 downto 0) := "110";
 signal
 	slv_10CD,
-	slv_7HJ,
-	slv_7J,
 	slv_7K,
 	slv_7L,
-	slv_7M,
-	slv_7N,
 	slv_7P,
 	slv_7R,
 	slv_7S,
@@ -243,13 +243,14 @@ signal
 	slv_8BC,
 	slv_8CD,
 	slv_PFBS,
-	slv_PFB0,
-	slv_PFB1,
 --	slv_PFROMSELn,
 	slv_PROMD,
 	slv_R, slv_G, slv_B,
-	slv_Z        : std_logic_vector( 3 downto 0) := (others=>'0');
+	slv_Z			: std_logic_vector( 3 downto 0) := (others=>'0');
+signal slv_PFB0			: std_logic_vector( 3 downto 0) := x"0"; -- address 1700 playfield bank 1 select
+signal slv_PFB1			: std_logic_vector( 3 downto 0) := x"1"; -- addredd 1780 playfield bank 2 select
 signal
+	slv_MOLBI,
 	slv_MOLBO,
 	slv_12H,
 	slv_12J,
@@ -261,29 +262,29 @@ signal
 	slv_MOLB0_DO,
 	slv_MOLB1_DO,
 	slv_MOLB2_DO,
-	slv_LLA             : std_logic_vector( 7 downto 0) := (others=>'0');
+	slv_LLA			: std_logic_vector( 7 downto 0) := (others=>'0');
 signal
 	slv_PROMA,
 	slv_sum_4J_4K,
 	slv_VSx,
 	slv_xVS,
-	slv_MOV             : std_logic_vector( 8 downto 0) := (others=>'0');
+	slv_MOV			: std_logic_vector( 8 downto 0) := (others=>'0');
 signal
-	slv_V_ctr           : std_logic_vector( 8 downto 0) := (others=>'0');
+	slv_V_ctr		: std_logic_vector( 8 downto 0) := (others=>'0');
 signal
-	slv_H_ctr           : std_logic_vector( 9 downto 0) := (others=>'0'); -- resets at "1001111111" x27F 639
+	slv_H_ctr		: std_logic_vector( 9 downto 0) := (others=>'0'); -- resets at "1001111111" x27F 639
 signal
 	slv_HSx,
 	slv_xHS,
-	slv_MOPIC           : std_logic_vector(10 downto 0) := (others=>'0');
+	slv_MOPIC		: std_logic_vector(10 downto 0) := (others=>'0');
 signal
-	slv_ANMOA           : std_logic_vector(10 downto 0) := (others=>'0');
+	slv_ANMOA		: std_logic_vector(10 downto 0) := (others=>'0');
 signal
-	slv_PFA             : std_logic_vector(12 downto 0) := (others=>'0');
+	slv_PFA			: std_logic_vector(12 downto 0) := (others=>'0');
 signal
-	slv_VPA             : std_logic_vector(12 downto 1) := (others=>'0');
+	slv_VPA			: std_logic_vector(12 downto 1) := (others=>'0');
 signal
-	slv_PFROMA          : std_logic_vector(14 downto 0) := (others=>'0');
+	slv_PFROMA		: std_logic_vector(14 downto 0) := (others=>'0');
 signal
 	slv_1K_2BC,
 	slv_2P_1N,
@@ -297,11 +298,11 @@ signal
 	slv_PFDI,
 	slv_PFDO,
 	slv_VPDI,
-	slv_VPDO            : std_logic_vector(15 downto 0) := (others=>'0');
+	slv_VPDO		: std_logic_vector(15 downto 0) := (others=>'0');
 signal
-	slv_MOROMA          : std_logic_vector(19 downto 0) := (others=>'0');
+	slv_MOROMA		: std_logic_vector(19 downto 0) := (others=>'0');
 signal
-	slv_ANMOD           : std_logic_vector(31 downto 0) := (others=>'0');
+	slv_ANMOD		: std_logic_vector(31 downto 0) := (others=>'0');
 begin
 	O_VPD         <= slv_VPDO;
 	O_STANDALONEn <= sl_STANDALONEn;
@@ -644,11 +645,13 @@ begin
 			sl_32VDD_4Hn <= sl_32VD_4Hn;
 			sl_32VD_4Hn  <= sl_32V;
 			sl_384VD_4Hn <= sl_384V;
-			slv_PFCOL( 2 downto 0) <= slv_PFC(2 downto 0);
-			slv_PFPRIO(1 downto 0) <= slv_PFP(1 downto 0);
+			sl_PFCOL2    <= sl_PFC2;
+			sl_PFCOL1    <= sl_PFC1;
+			sl_PFCOL0    <= sl_PFC0;
+			sl_PFPRI1    <= sl_PFP1;
+			sl_PFPRI0    <= sl_PFP0;
 		end if;
 	end process;
-
 
 -------- Sheet 12A --------
 	-- output data bus muxer
@@ -699,8 +702,11 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_4H_strobe = '1' then
-			slv_PFP(1 downto 0)     <= slv_PFDO(15 downto 14);
-			slv_PFC(2 downto 0)     <= slv_PFDO(13 downto 11);
+			sl_PFP1                 <= slv_PFDO(15);
+			sl_PFP0                 <= slv_PFDO(14);
+			sl_PFC2                 <= slv_PFDO(13);
+			sl_PFC1                 <= slv_PFDO(12);
+			sl_PFC0                 <= slv_PFDO(11);
 			slv_PFROMA(14 downto 4) <= slv_PFDO(10 downto  0);
 		end if;
 	end process;
@@ -715,39 +721,32 @@ begin
 	O_MOROMA   <= slv_MOROMA;
 	slv_MOROMD <= I_MOROMD;
 
+	-- loadable serial shifters preset to always shift up
 	-- when MOVMATCHn high all outputs are high
 	-- when MOHFLIPD high we bit reverse or else straight through
-	-- the 74LS158 is an inverting muxer so we must also invert the data
-	slv_7HJ <=
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD(12) & slv_MOROMD(13) & slv_MOROMD(14) & slv_MOROMD(15)) when sl_MOHFLIPD = '1' else
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD(15 downto 12);
-	slv_7J  <= 
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD( 8) & slv_MOROMD( 9) & slv_MOROMD(10) & slv_MOROMD(11)) when sl_MOHFLIPD = '1' else
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD(11 downto  8);
-	slv_7M <=
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD( 4) & slv_MOROMD( 5) & slv_MOROMD( 6) & slv_MOROMD( 7)) when sl_MOHFLIPD = '1' else
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD( 7 downto  4);
-	slv_7N  <= 
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not (slv_MOROMD( 0) & slv_MOROMD( 1) & slv_MOROMD( 2) & slv_MOROMD( 3)) when sl_MOHFLIPD = '1' else
-		(sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn & sl_MOVMATCHn) or not slv_MOROMD( 3 downto  0);
--- FIXME can we do better?
---	slv_MOROMD <= I_MOROMD when sl_MOVMATCHn = '0' else (others=> '1'); -- when MOVMATCHn is high all outputs are high due to /OE at 7HJ 7J 7M 7N
---	slv_7HJ <= not (slv_MOROMD(12) & slv_MOROMD(13) & slv_MOROMD(14) & slv_MOROMD(15)) when sl_MOHFLIPD = '1' else not slv_MOROMD(15 downto 12);
---	slv_7J  <= not (slv_MOROMD( 8) & slv_MOROMD( 9) & slv_MOROMD(10) & slv_MOROMD(11)) when sl_MOHFLIPD = '1' else not slv_MOROMD(11 downto  8);
---	slv_7M  <= not (slv_MOROMD( 4) & slv_MOROMD( 5) & slv_MOROMD( 6) & slv_MOROMD( 7)) when sl_MOHFLIPD = '1' else not slv_MOROMD( 7 downto  4);
---	slv_7N  <= not (slv_MOROMD( 0) & slv_MOROMD( 1) & slv_MOROMD( 2) & slv_MOROMD( 3)) when sl_MOHFLIPD = '1' else not slv_MOROMD( 3 downto  0);
-
-
-
-	-- loadable serial shifters preset to always shift up
 	p_7K_7L_7P_7R : process
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_1H_2H = '1' then -- NIBLOAD
-			slv_7K <= slv_7HJ;
-			slv_7L <= slv_7J;
-			slv_7P <= slv_7M;
-			slv_7R <= slv_7N;
+			if sl_MOVMATCHn = '0' then
+				-- the 74LS158 is an inverting muxer so we must also invert the data
+				if sl_MOHFLIPD = '1' then -- flipped data from 7HJ 7J 7M 7N
+					slv_7K <= (slv_MOROMD(12) & slv_MOROMD(13) & slv_MOROMD(14) & slv_MOROMD(15));
+					slv_7L <= (slv_MOROMD( 8) & slv_MOROMD( 9) & slv_MOROMD(10) & slv_MOROMD(11));
+					slv_7P <= (slv_MOROMD( 4) & slv_MOROMD( 5) & slv_MOROMD( 6) & slv_MOROMD( 7));
+					slv_7R <= (slv_MOROMD( 0) & slv_MOROMD( 1) & slv_MOROMD( 2) & slv_MOROMD( 3));
+				else -- unflipped data from 7HJ 7J 7M 7N
+					slv_7K <= slv_MOROMD(15 downto 12);
+					slv_7L <= slv_MOROMD(11 downto  8);
+					slv_7P <= slv_MOROMD( 7 downto  4);
+					slv_7R <= slv_MOROMD( 3 downto  0);
+				end if;
+			else -- outputs of 7HJ 7J 7M 7N are high due to /OE
+				slv_7K <= (others=>'1');
+				slv_7L <= (others=>'1');
+				slv_7P <= (others=>'1');
+				slv_7R <= (others=>'1');
+			end if;
 		else
 			slv_7K <= slv_7K(2 downto 0) & '1'; -- MOPIX3
 			slv_7L <= slv_7L(2 downto 0) & '1'; -- MOPIX2
@@ -789,63 +788,16 @@ begin
 -------- Sheet 13B --------
 
 	-- Motion Objects Line Buffers
+	slv_MOLBI <= sl_MOPRI1 & sl_MOPRI0 & sl_MOCOL1 & sl_MOCOL0 & slv_7K(3) & slv_7L(3) & slv_7P(3) & slv_7R(3);
 
 	-- 8S 8T 8R 8P 8N 8M 9L 11L 11N
-	MOLB0 : entity work.MOLB port map (
-		I_CLK         => I_CLK,
-		I_IENn        => sl_2OF3Vn,
-		I_OENn        => sl_0OF3Vn,
-		I_MOHLDn      => sl_MOHLD0n,
-		I_MOHRn       => sl_MOHR0n,
-		I_ADDR        => slv_ANMOD(15 downto 6), -- X position
-		I_DATA(7)     => sl_MOPRI1, -- MOPRI1
-		I_DATA(6)     => sl_MOPRI0, -- MOPRI0
-		I_DATA(5)     => sl_MOCOL1, -- MOCOL1
-		I_DATA(4)     => sl_MOCOL0, -- MOCOL0
-		I_DATA(3)     => slv_7K(3), -- MOPIX3
-		I_DATA(2)     => slv_7L(3), -- MOPIX2
-		I_DATA(1)     => slv_7P(3), -- MOPIX1
-		I_DATA(0)     => slv_7R(3), -- MOPIX0
-		O_DATA        => slv_MOLB0_DO
-	);
+	MOLB0 : entity work.MOLB port map (I_CLK=>I_CLK, I_IENn=>sl_2OF3Vn, I_OENn=>sl_0OF3Vn, I_MOHLDn=>sl_MOHLD0n, I_MOHRn=>sl_MOHR0n, I_ADDR=>slv_ANMOD(15 downto 6), I_DATA=>slv_MOLBI, O_DATA=>slv_MOLB0_DO);
 
 	-- 9S 9T 9R 9P 9N 9M 10L 11L 11N
-	MOLB1 : entity work.MOLB port map (
-		I_CLK         => I_CLK,
-		I_IENn        => sl_0OF3Vn,
-		I_OENn        => sl_1OF3Vn,
-		I_MOHLDn      => sl_MOHLD1n,
-		I_MOHRn       => sl_MOHR1n,
-		I_ADDR        => slv_ANMOD(15 downto 6), -- X position
-		I_DATA(7)     => sl_MOPRI1, -- MOPRI1
-		I_DATA(6)     => sl_MOPRI0, -- MOPRI0
-		I_DATA(5)     => sl_MOCOL1, -- MOCOL1
-		I_DATA(4)     => sl_MOCOL0, -- MOCOL0
-		I_DATA(3)     => slv_7K(3), -- MOPIX3
-		I_DATA(2)     => slv_7L(3), -- MOPIX2
-		I_DATA(1)     => slv_7P(3), -- MOPIX1
-		I_DATA(0)     => slv_7R(3), -- MOPIX0
-		O_DATA        => slv_MOLB1_DO
-	);
+	MOLB1 : entity work.MOLB port map (I_CLK=>I_CLK, I_IENn=>sl_0OF3Vn, I_OENn=>sl_1OF3Vn, I_MOHLDn=>sl_MOHLD1n, I_MOHRn=>sl_MOHR1n, I_ADDR=>slv_ANMOD(15 downto 6), I_DATA=>slv_MOLBI, O_DATA=>slv_MOLB1_DO);
 
 	-- 10S 10T 10R 10P 10N 10M 10K 11L 11N
-	MOLB2 : entity work.MOLB port map (
-		I_CLK         => I_CLK,
-		I_IENn        => sl_1OF3Vn,
-		I_OENn        => sl_2OF3Vn,
-		I_MOHLDn      => sl_MOHLD2n,
-		I_MOHRn       => sl_MOHR2n,
-		I_ADDR        => slv_ANMOD(15 downto 6), -- X position
-		I_DATA(7)     => sl_MOPRI1, -- MOPRI1
-		I_DATA(6)     => sl_MOPRI0, -- MOPRI0
-		I_DATA(5)     => sl_MOCOL1, -- MOCOL1
-		I_DATA(4)     => sl_MOCOL0, -- MOCOL0
-		I_DATA(3)     => slv_7K(3), -- MOPIX3
-		I_DATA(2)     => slv_7L(3), -- MOPIX2
-		I_DATA(1)     => slv_7P(3), -- MOPIX1
-		I_DATA(0)     => slv_7R(3), -- MOPIX0
-		O_DATA        => slv_MOLB2_DO
-	);
+	MOLB2 : entity work.MOLB port map (I_CLK=>I_CLK, I_IENn=>sl_1OF3Vn, I_OENn=>sl_2OF3Vn, I_MOHLDn=>sl_MOHLD2n, I_MOHRn=>sl_MOHR2n, I_ADDR=>slv_ANMOD(15 downto 6), I_DATA=>slv_MOLBI, O_DATA=>slv_MOLB2_DO);
 
 	-- demux outputs
 	slv_MOLBO <=
@@ -861,8 +813,8 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_HSCROLLn = '0' then
-			slv_HSx(9 downto 0) <= slv_VPDI(15 downto 6);
-			slv_PFB0            <= slv_VPDI( 3 downto 0);
+			slv_HSx(9 downto 0) <= slv_VPDI(15 downto 6); -- Horizontal scroll value
+			slv_PFB0            <= slv_VPDI( 3 downto 0); -- address 1700 playfield bank 1 select
 		end if;
 	end process;
 
@@ -897,9 +849,9 @@ begin
 	begin
 		wait until rising_edge(I_CLK);
 		if sl_VSCROLLn = '0' then
-			slv_VSx( 8 downto  0) <= slv_VPDI(14 downto 6);
-			sl_5CD_3CD_4DE_LDENn  <= slv_VPDI( 4);
-			slv_PFB1              <= slv_VPDI( 3 downto 0);
+			slv_VSx( 8 downto  0) <= slv_VPDI(14 downto 6); -- Vertical scroll value
+			sl_5CD_3CD_4DE_LDENn  <= slv_VPDI( 4);          -- hold (V counter load disable)
+			slv_PFB1              <= slv_VPDI( 3 downto 0); -- address 1780 playfield  bank 2 select
 		end if;
 	end process;
 
@@ -927,11 +879,11 @@ begin
 		I_HSLDn => sl_HSLDn,
 		I_421H  => slv_xHS(2 downto 0),
 
-		I_D(8)  => slv_PFPRIO(1),
-		I_D(7)  => slv_PFPRIO(0),
-		I_D(6)  => slv_PFCOL(2),
-		I_D(5)  => slv_PFCOL(1),
-		I_D(4)  => slv_PFCOL(0),
+		I_D(8)  => sl_PFPRI1,
+		I_D(7)  => sl_PFPRI0,
+		I_D(6)  => sl_PFCOL2,
+		I_D(5)  => sl_PFCOL1,
+		I_D(4)  => sl_PFCOL0,
 		I_D(3)  => slv_8A(3),  -- PFPIX3
 		I_D(2)  => slv_8B(3),  -- PFPIX2
 		I_D(1)  => slv_8BC(3), -- PFPIX1
@@ -950,32 +902,32 @@ begin
 
 	-- Prioritizing Logic
 
-	sl_LBPRI1 <= slv_MOLBO(7);
-	sl_LBPRI0 <= slv_MOLBO(6);
-	sl_LBCOL1 <= slv_MOLBO(5);
-	sl_LBCOL0 <= slv_MOLBO(4);
-	sl_LBPIX3 <= slv_MOLBO(3);
-	sl_LBPIX2 <= slv_MOLBO(2);
-	sl_LBPIX1 <= slv_MOLBO(1);
-	sl_LBPIX0 <= slv_MOLBO(0);
+	sl_LBPRI1  <= slv_MOLBO(7);
+	sl_LBPRI0  <= slv_MOLBO(6);
+	sl_LBCOL1  <= slv_MOLBO(5);
+	sl_LBCOL0  <= slv_MOLBO(4);
+	sl_LBPIXn3 <= slv_MOLBO(3);
+	sl_LBPIXn2 <= slv_MOLBO(2);
+	sl_LBPIXn1 <= slv_MOLBO(1);
+	sl_LBPIXn0 <= slv_MOLBO(0);
 
 	slv_10CD <= ('0' & sl_LBPRI1 & sl_LBPRI0 & '0') + not ('1' & sl_PFPRI1D & sl_PFPRI0D & '0'); -- adder 10CD
 
 	-- 11D 9F 10BC 8L 11R
-	sl_PF_ANMOn <= (not slv_PRI_sel(0) ) and  ( (sl_LBPIX3 and sl_LBPIX2 and sl_LBPIX1 and sl_LBPIX0) or (sl_PFPIX3D and slv_10CD(2)) );
+	sl_PF_ANMOn <= (not slv_PRI_sel(0) ) and ( (sl_LBPIXn3 and sl_LBPIXn2 and sl_LBPIXn1 and sl_LBPIXn0) or (sl_PFPIX3D and slv_10CD(2)) );
 
 	slv_PRI_sel <= sl_PF_ANMOn & (sl_ANPIX1D or sl_ANPIX0D);
 
 	-- 9H 10E 10D 11E
 	-- Verified on PCB by Colin Davies (ColinD - UKVAC), 10E (74S153) pin 5 connected to pins 1 ,8 and 15 (GND) whereas schematic shows it unconnected
 	slv_PRIO_LOGIC <=
-		(sl_PF_ANMOn)    &    (slv_PRI_sel(0) & sl_LBCOL1  & sl_LBCOL0  & not sl_LBPIX3  & not sl_LBPIX2  & not sl_LBPIX1  & not sl_LBPIX0) when slv_PRI_sel = "00" else -- MO
-		(sl_PF_ANMOn)    &    ('1'            & '0'        & sl_ANCOL2D &     sl_ANCOL1D &     sl_ANCOL0D &     sl_ANPIX1D &    sl_ANPIX0D) when slv_PRI_sel = "01" else -- AN
-		(sl_PF_ANMOn)    &    (sl_PFCOL2D     & sl_PFCOL1D & sl_PFCOL0D &     sl_PFPIX3D &     sl_PFPIX2D &     sl_PFPIX1D &    sl_PFPIX0D);                             -- PF
+		(sl_PF_ANMOn)    &    (slv_PRI_sel(0) & sl_LBCOL1  & sl_LBCOL0  & sl_LBPIXn3 & sl_LBPIXn2 & sl_LBPIXn1 & sl_LBPIXn0) when slv_PRI_sel = "00" else -- MO
+		(sl_PF_ANMOn)    &    ('1'            & '0'        & sl_ANCOL2D & sl_ANCOL1D & sl_ANCOL0D & sl_ANPIX1D & sl_ANPIX0D) when slv_PRI_sel = "01" else -- AN
+		(sl_PF_ANMOn)    &    (sl_PFCOL2D     & sl_PFCOL1D & sl_PFCOL0D & sl_PFPIX3D & sl_PFPIX2D & sl_PFPIX1D & sl_PFPIX0D);                             -- PF
 
 -------- Sheet 15A --------
 
-	-- Color RAM
+	-- Color RAM "RRRR GGGG BBBB ZZZZ"
 	RAM_11F_11K_11J_11H : entity work.RAM_256x16 port map (I_CLK => I_CLK, I_CEn => '0', I_WEn => sl_CRAMENn, I_ADDR => slv_CRA, I_DATA => slv_VPDI, O_DATA => slv_CRD);
 
 	sl_CRAMENn <= sl_COLORAMn or not sl_COUT;
@@ -1073,64 +1025,5 @@ begin
 	O_COMPSYNCn <= not (sl_VSYNC or sl_HSYNC); -- open collector inverter with 220R pullup
 	O_HSYNC     <=  sl_HSYNC; -- open collector buffer with 220R pullup
 	O_VSYNC     <=  sl_VSYNC; -- open collector buffer with 220R pullup
-
--- synthesis translate_off
-	p_DBG : process
-		type myfile is file of integer;
-		file		ofile			: TEXT open WRITE_MODE is "ANMO.log";
-		variable	s				: line;
-	begin
-		wait until rising_edge(I_CLK);
-		if sl_VSYNC_last = '0' and sl_VSYNC = '1' then
-			WRITE(s, string'("VSYNC rise ## ")); WRITE(s, now);
-			WRITELINE(ofile, s);
-		end if;
-		if sl_VSYNC_last = '1' and sl_VSYNC = '0' then
-			WRITE(s, string'("VSYNC fall ## ")); WRITE(s, now);
-			WRITELINE(ofile, s);
-		end if;
-		if sl_HSYNC_last = '0' and sl_HSYNC = '1' then
-			WRITE(s, string'("HSYNC rise ## ")); WRITE(s, now);
-			WRITELINE(ofile, s);
-		end if;
-		if sl_HSYNC_last = '1' and sl_HSYNC = '0' then
-			WRITE(s, string'("HSYNC fall ## ")); WRITE(s, now);
-			WRITELINE(ofile, s);
-		end if;
-
-		if (sl_1H_2H) = '1' then -- phase 2 addr selectors
-			if sl_4H_8H_CLK   = '0' then -- LL addr lsb=1
-				WRITE(s, string'(" SEL3 "));
-			end if;
-			if sl_4Hn_8H_CLK  = '0' then -- T-11 r/w
-				WRITE(s, string'(" SEL2 "));
-			end if;
-			if sl_4H_8Hn_CLK  = '0' then -- V/H counters
-				WRITE(s, string'(" SEL1 "));
-			end if;
-			if sl_4Hn_8Hn_CLK = '0' then -- LL addr lsb=0
-				WRITE(s, string'(" SEL0 "));
-			end if;
-
-			WRITE(s, string'(" ANMOA " )); HWRITE(s, slv_ANMOA );
-			WRITE(s, string'(" ANMOD " )); HWRITE(s, slv_ANMOD );
-
-			WRITE(s, string'(" PROMA " )); HWRITE(s, slv_PROMA );
-			WRITE(s, string'(" PROMD " )); HWRITE(s, slv_PROMD );
-
-			WRITE(s, string'(" MOROMA ")); HWRITE(s, slv_MOROMA);
-			WRITE(s, string'(" MOROMD ")); HWRITE(s, slv_MOROMD);
-
-			WRITE(s, string'(" MOV "   )); HWRITE(s, slv_MOV   );
-			WRITE(s, string'(" VCTR "  )); HWRITE(s, slv_V_ctr );
-
-			WRITE(s, string'(" MOSIZ " )); HWRITE(s, slv_MOSIZ );
-			WRITE(s, string'(" MOPIC " )); HWRITE(s, slv_MOPIC );
-
-			WRITE(s, string'(" ## ")); WRITE(s, now);
-			WRITELINE(ofile, s);
-		end if;
-	end process;
--- synthesis translate_on
 
 end RTL;
