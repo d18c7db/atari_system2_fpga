@@ -592,7 +592,7 @@ begin
 		end if;
 
 		if I_CSn = '0' then
-			if sl_ASn_last = '0' and I_ASn = '1' then
+			if sl_ASn_last = '1' and I_ASn = '0' then
                                                                                     --	/* reset is universal */
 				if addr = x"0000" then                                                  --	if (offset == 0x0000)
                                                                                     --	{

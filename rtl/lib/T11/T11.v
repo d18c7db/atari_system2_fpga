@@ -2,6 +2,16 @@
 // Copyright (c) 2014-2025 by 1801BM1@gmail.com
 //
 // DEC T-11 microprocessor
+//
+// change log:
+// d18c7db - added clock enable input, useful in FPGA cores when the system wide clock is much faster than needed and the CPU must be clocked slower
+//         - added a basic COUT pin in fixed "processor mode clock" but this core doesn't have a mode register to switch to "constant clock mode", see datasheet section 3.5.3
+//          "constant clock mode" is just half the T-11 clock (phase not relevant) so that is easy to generate externally if needed
+//           but "processor mode clock" depends on internal phases so it's the more useful to have
+//         - removed individual external interrupt pins, added AI bus as per T-11 datasheet
+//           note that AI coded interrupt bits [4:1] are assigned internally to inr in reverse order, but the external AI pins respect datasheet order
+//         - removed special input bus for startup address, this value is read from the normal databus during PUP as per datasheet
+//         - added register init on PUP to values stated in datasheet, particularly SP and PSW should not be reset to 0
 //______________________________________________________________________________
 //
 module t11
@@ -23,11 +33,7 @@ module t11
    output         pin_cas_n,     //
    output         pin_pi,        // priority input strobe
                                  //
-   input          pin_hlt_n,     // supervisor exception requests
-   input          pin_pf_n,      // power fail notification
-   input          pin_vec_n,     // vectored interrupt request
-   input  [3:0]   pin_cp_n,      // coded interrupt priority
-   input  [2:0]   pin_bsel       // start address selector
+   input  [7:0]   pin_ai         // coded interrupt priority
 );
 
 //______________________________________________________________________________
@@ -189,21 +195,6 @@ wire           immed;            //
                                  //
 //______________________________________________________________________________
 //
-// Debug and temporary assignments to supress glitches in model
-//
-integer i;
-
-initial
-begin
-   for (i=0; i<11; i = i + 1)
-      r[i] = 16'o000000;
-
-   ra0 = 1'b0;
-   psw = 8'o000;
-end
-
-//______________________________________________________________________________
-//
 // Reset and clocks
 //
 always @(posedge pin_clk_p or posedge dclo)
@@ -242,7 +233,7 @@ begin
          reset <= 1'b0;
 
    if (dclo)
-      mr[15:13] <= pin_bsel;
+      mr[15:13] <= pin_ad_in[15:13];
 end
 
 always @(posedge pin_clk_p or posedge reset)
@@ -291,7 +282,7 @@ end
 assign pin_cas_n = ~cas;
 assign pin_ras_n = ~ras;
 assign rdy = pin_ready;
-assign pin_cout = t2; // FIXME - not accurate representation of processor clock mode
+assign pin_cout = t4; // FIXME - not entirely accurate processor mode clock but it's something
 assign pin_sel[0] = sm0;
 assign pin_sel[1] = sm1;
 assign pin_wb_n[0] = ~wb0;
@@ -379,7 +370,7 @@ begin
       pf0 <= 1'b0;
    else
       if (pi_lat)
-         pf0 <= ~pin_pf_n;
+         pf0 <= ~pin_ai[6];
 
    if (~pi_lat)
       pf1 <= pf0;
@@ -403,7 +394,7 @@ begin
       hlt0 <= 1'b0;
    else
       if (pi_lat)
-         hlt0 <= ~pin_hlt_n;
+         hlt0 <= ~pin_ai[7];
 
    if (~halt & ~hlt0 & ~pi_lat)
       hlt1 <= 1'b1;
@@ -422,8 +413,8 @@ always @(posedge pin_clk_p)
 begin
    if (pi_lat)
    begin
-      vec <= ~pin_vec_n;
-      inr <= ~pin_cp_n;
+      vec <= ~pin_ai[5];
+      inr <= ~{pin_ai[1], pin_ai[2], pin_ai[3], pin_ai[4]};
    end
 end
 
@@ -572,44 +563,62 @@ assign ry = (inr_ry ? {10'b00, inr[2], inr[3], ~inr[1], ~inr[0] ,2'b00} : 16'o00
 
 always @(posedge pin_clk_p)
 begin
-   if (sx_wl)
+   if (dclo)
+      begin
+         r[0] = 16'o0;
+         r[1] = 16'o0;
+         r[2] = 16'o0;
+         r[3] = 16'o0;
+         r[4] = 16'o0;
+         r[5] = 16'o0;
+         r[6] = 16'o376;
+         r[7] = 16'o0;
+         r[8] = 16'o0;
+         r[9] = 16'o0;
+         r[10] = 16'o0;
+         psw = 8'o340;
+      end
+   else
    begin
-      if (rselx[0]) r[0][7:0] <= wx[7:0];
-      if (rselx[1]) r[1][7:0] <= wx[7:0];
-      if (rselx[2]) r[2][7:0] <= wx[7:0];
-      if (rselx[3]) r[3][7:0] <= wx[7:0];
-      if (rselx[4]) r[4][7:0] <= wx[7:0];
-      if (rselx[5]) r[5][7:0] <= wx[7:0];
-      if (rselx[6]) r[6][7:0] <= wx[7:0];
-      if (rselx[7]) r[7][7:0] <= wx[7:0];
-      if (rselx[8]) r[8][7:0] <= wx[7:0];
-      if (rselx[9]) r[9][7:0] <= wx[7:0];
-      if (rselx[10]) r[10][7:0] <= wx[7:0];
-      if (rselx[11]) psw[7:0] <= wx[7:0];
-   end
+      if (sx_wl)
+      begin
+         if (rselx[0]) r[0][7:0] <= wx[7:0];
+         if (rselx[1]) r[1][7:0] <= wx[7:0];
+         if (rselx[2]) r[2][7:0] <= wx[7:0];
+         if (rselx[3]) r[3][7:0] <= wx[7:0];
+         if (rselx[4]) r[4][7:0] <= wx[7:0];
+         if (rselx[5]) r[5][7:0] <= wx[7:0];
+         if (rselx[6]) r[6][7:0] <= wx[7:0];
+         if (rselx[7]) r[7][7:0] <= wx[7:0];
+         if (rselx[8]) r[8][7:0] <= wx[7:0];
+         if (rselx[9]) r[9][7:0] <= wx[7:0];
+         if (rselx[10]) r[10][7:0] <= wx[7:0];
+         if (rselx[11]) psw[7:0] <= wx[7:0];
+      end
 
-   if (sx_wh)
-   begin
-      if (rselx[0]) r[0][15:8] <= wx[15:8];
-      if (rselx[1]) r[1][15:8] <= wx[15:8];
-      if (rselx[2]) r[2][15:8] <= wx[15:8];
-      if (rselx[3]) r[3][15:8] <= wx[15:8];
-      if (rselx[4]) r[4][15:8] <= wx[15:8];
-      if (rselx[5]) r[5][15:8] <= wx[15:8];
-      if (rselx[6]) r[6][15:8] <= wx[15:8];
-      if (rselx[7]) r[7][15:8] <= wx[15:8];
-      if (rselx[8]) r[8][15:8] <= wx[15:8];
-      if (rselx[9]) r[9][15:8] <= wx[15:8];
-      if (rselx[10]) r[10][15:8] <= wx[15:8];
-   end
+      if (sx_wh)
+      begin
+         if (rselx[0]) r[0][15:8] <= wx[15:8];
+         if (rselx[1]) r[1][15:8] <= wx[15:8];
+         if (rselx[2]) r[2][15:8] <= wx[15:8];
+         if (rselx[3]) r[3][15:8] <= wx[15:8];
+         if (rselx[4]) r[4][15:8] <= wx[15:8];
+         if (rselx[5]) r[5][15:8] <= wx[15:8];
+         if (rselx[6]) r[6][15:8] <= wx[15:8];
+         if (rselx[7]) r[7][15:8] <= wx[15:8];
+         if (rselx[8]) r[8][15:8] <= wx[15:8];
+         if (rselx[9]) r[9][15:8] <= wx[15:8];
+         if (rselx[10]) r[10][15:8] <= wx[15:8];
+      end
 
-   if (t4 & psw_wf)
-   begin
-      if (psw_wc)
-         psw[0] <= alu_cf;
-      psw[1] <= alu_vf;
-      psw[2] <= alu_zf;
-      psw[3] <= alu_nf;
+      if (t4 & psw_wf)
+      begin
+         if (psw_wc)
+            psw[0] <= alu_cf;
+            psw[1] <= alu_vf;
+            psw[2] <= alu_zf;
+            psw[3] <= alu_nf;
+      end
    end
 end
 
@@ -620,11 +629,14 @@ assign ra0_clr = ~iop[4] & ~plm[22];
 
 always @(posedge pin_clk_p)
 begin
-   if (ra0_clr)
-      ra0 <= 1'b0;
+   if (dclo)
+      ra0 = 1'b0;
    else
-      if (ra_stb)
-         ra0 <= rx[0];
+      if (ra0_clr)
+         ra0 <= 1'b0;
+      else
+         if (ra_stb)
+            ra0 <= rx[0];
 end
 
 assign sx_af = ~da_s0;
@@ -922,7 +934,7 @@ begin
    if (reset)
       plm_rdy <= 1'b1;
    else
-      if (t1 | t2)
+      if (~t4)
          plm_rdy <= iordy;
 end
 

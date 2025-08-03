@@ -42,7 +42,7 @@ entity VIDEO is
 		O_VPACKn         : out std_logic; -- VIDMEMACKn
 		O_384VD_4Hn      : out std_logic; -- VBLANK
 		O_32VDD_4Hn      : out std_logic; -- 32V
-		O_STANDALONEn    : out std_logic; -- Pulled low on this board
+		O_STANDALONE     : out std_logic;
 
 		-- Interboard connector P18 end
 
@@ -66,9 +66,6 @@ entity VIDEO is
 end VIDEO;
 
 architecture RTL of VIDEO is
-
-signal sl_STANDALONEn : std_logic := '0'; -- tied low on video processor board
-
 signal
 	sl_0OF3Vn,
 	sl_1OF3Vn,
@@ -305,7 +302,7 @@ signal
 	slv_ANMOD		: std_logic_vector(31 downto 0) := (others=>'0');
 begin
 	O_VPD         <= slv_VPDO;
-	O_STANDALONEn <= sl_STANDALONEn;
+	O_STANDALONE  <= '0'; -- tied to GND on this video board, affects MEMDONE signal on CPU board
 	O_VPACKn      <= sl_VPACKn;
 	O_384VD_4Hn   <= sl_384VD_4Hn;
 	O_32VDD_4Hn   <= sl_32VDD_4Hn;
@@ -610,7 +607,7 @@ begin
 		if (sl_512HD_4H and (not sl_512H)) = '1' then -- 11CD
 			slv_LLA <= (others=>'0');
 		elsif sl_8Hn_strobe = '1' then
-			slv_LLA <= slv_ANMOD(26 downto 19); -- Link to next object FIXME MAME shows bits 22:15 not 26:19
+			slv_LLA <= slv_ANMOD(26 downto 19); -- Link to next object (why does MAME show bits 22:15 not 26:19)
 		end if;
 	end process;
 
@@ -930,7 +927,10 @@ begin
 	-- Color RAM "RRRR GGGG BBBB ZZZZ"
 	RAM_11F_11K_11J_11H : entity work.RAM_256x16 port map (I_CLK => I_CLK, I_CEn => '0', I_WEn => sl_CRAMENn, I_ADDR => slv_CRA, I_DATA => slv_VPDI, O_DATA => slv_CRD);
 
-	sl_CRAMENn <= sl_COLORAMn or not sl_COUT;
+	-- the real RAM chip is not clocked so normally COUT would create a RAM /WE pulse during /CRAMEN but since our RAM here runs off a clock that is asynchronous with the CPU's clock
+	-- it sometimes misses some writes, so by not limiting us to the narrow COUT timeframe, we ensure at least two clocks, sometime three will generate a write during /CRAMEN
+--	sl_CRAMENn <= sl_COLORAMn or not sl_COUT; -- as per schematic
+	sl_CRAMENn <= sl_COLORAMn;
 
 	-- Color RAM Addressing and Data Buffers
 	p_10J : process

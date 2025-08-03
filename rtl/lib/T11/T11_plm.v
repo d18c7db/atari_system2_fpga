@@ -6,7 +6,7 @@
 //
 // Main matrix inputs format:
 //
-//    m[9:0] - instruction code latched in instrustion register (opcode)
+//    m[9:0] - instruction code latched in instruction register (opcode)
 //    n[7:0] - microinstruction next address
 //
 module t11_plm
@@ -175,7 +175,7 @@ assign p[139] = cmp({m, n}, {10'bxxxxxxxxxx, 8'b00010010});
 assign p[140] = cmp({m, n}, {10'bxxxxxxxxxx, 8'b00000011});
 
 //
-// Summ-Of-Products
+// Sum-Of-Products
 //
 assign sp = ~pl;
 

@@ -33,7 +33,7 @@ entity MAIN is
 		O_LETA_CLK_ENA   : out std_logic; -- LETA clock enable 156Khz
 
 		-- external ROMs
-		O_ROM_ADDR       : out std_logic_vector(16 downto 1);
+		O_ROM_ADDR       : out std_logic_vector(15 downto 1);
 		I_ROM_DATA       : in  std_logic_vector(15 downto 0);
 
 		-- External ADC
@@ -75,77 +75,76 @@ entity MAIN is
 		I_VIDMEMACKn     : in  std_logic;
 		I_VBLANK         : in  std_logic;
 		I_32V            : in  std_logic;
-		I_STANDALONEn    : in  std_logic
+		I_STANDALONE     : in  std_logic := '1' -- has a pullup here but shorted to GND on video board
 	);
 end MAIN;
 
 architecture RTL of MAIN is
 signal
+	sl_STANDALONEn,
 	sl_2M1Qn,
 	sl_2M2Qn,
-	sl_3L_Qn,
 	sl_32Vn,
 	sl_32Vn_last,
+	sl_3L_Qn,
 	sl_3N1Qn,
 	sl_3N2Qn,
-	sl_P2IRQn,
-	sl_P2IRQCLRn,
-	sl_P2IRQCLRn_last,
-	sl_P1IRQENn,
-	sl_P1IRQENn_last,
-	sl_P1IRQCLRn,
+	sl_ADCSTARTn,
+	sl_ADCn,
+	sl_BCLRn,
+	sl_CASn,
+	sl_CASn_last,
+	sl_COLORAMn,
+	sl_CONTROLSn,
+	sl_HALTn,
+	sl_HSCROLLn,
+	sl_MEMREQn,
+	sl_MIENn,
+	sl_MISCn,
 	sl_P1IRQ0CLRn,
 	sl_P1IRQ2CLRn,
 	sl_P1IRQ3CLRn,
+	sl_P1IRQCLRn,
+	sl_P1IRQENn,
+	sl_P1IRQENn_last,
 	sl_P1PORTRDn,
 	sl_P1PORTRDn_last,
 	sl_P1PORTWRn,
 	sl_P1PORTWRn_last,
+	sl_P2IRQCLRn,
+	sl_P2IRQCLRn_last,
+	sl_P2IRQn,
 	sl_P2PORTRDn,
 	sl_P2PORTRDn_last,
 	sl_P2PORTWRn,
 	sl_P2PORTWRn_last,
 	sl_P2RESETn,
 	sl_P2RESETn_last,
-	sl_MIENn,
-	sl_PORn,
-	sl_RST6502n,
-	sl_SRAMCEn,
 	sl_PAGEDMEMn,
-	sl_MISCn,
-	sl_MEMREQn,
-	sl_CONTROLSn,
-	sl_ADCn,
-	sl_WDCLRn,
-	sl_COLORAMn,
-	sl_VSCROLLn,
-	sl_HSCROLLn,
-	sl_VIDMEMn,
-	sl_ADCSTARTn,
+	sl_PFAILn,
 	sl_PMMUn,
-	sl_BCLRn,
-	sl_R_WHn,
-	sl_R_WLn,
-	sl_CASn,
-	sl_CASn_last,
+	sl_PORn,
 	sl_RASn,
 	sl_RASn_last,
-	sl_HALTn,
-	sl_PFAILn,
+	sl_RST6502n,
+	sl_R_WHn,
+	sl_R_WLn,
 	sl_SLAPSTICn,
+	sl_SRAMCEn,
 	sl_VIDMEMACKn,
-	sl_VIDMEMACKn_last	: std_logic := '1';
+	sl_VIDMEMACKn_last,
+	sl_VIDMEMn,
+	sl_VSCROLLn,
+	sl_P1TALK,
+	sl_P2TALK,
+	sl_WDCLRn		: std_logic := '1';
 signal
+	sl_3MY1,
 	sl_CLK,
 	sl_CLK_ENA,
 	sl_CPU_ENA,
 	sl_COUT,
 	sl_SPEED,
-	sl_VMP0,
-	sl_VMP1,
-	sl_3MY1,
-	sl_P1TALK,
-	sl_P2TALK,
 	sl_P1IRQ0EN,
 	sl_P1IRQ1EN,
 	sl_P1IRQ2EN,
@@ -154,42 +153,48 @@ signal
 	sl_TMS_CLK_ENA,
 	sl_VBLANK,
 	sl_VBLANK_last,
+	sl_VMP0,
+	sl_VMP1,
 	sl_MEMDONE			: std_logic := '0';
 signal
-	slv_LA				: std_logic_vector(15 downto 1) := (others=>'0');
+	slv_SEL_last,
+	slv_SEL				: std_logic_vector( 1 downto 0) := (others=>'0');
 signal
-	slv_CTRL,
-	slv_MID,
-	slv_RAM_DATA,
-	slv_DALI,
-	slv_DALO			: std_logic_vector(15 downto 0) := (others=>'0');
+	slv_ADC_ADDR
+						: std_logic_vector( 2 downto 0) := (others=>'0');
 signal
-	slv_ROMADDR			: std_logic_vector(13 downto 0) := (others=>'0');
+	slv_ctr_3F,
+	slv_ctr_4D			: std_logic_vector( 3 downto 0) := (others=>'0');
+signal
+	slv_PAD,
+	slv_PAD0,
+	slv_PAD1			: std_logic_vector( 5 downto 0) := (others=>'0');
 signal
 	slv_6502_DATA,
 	slv_T11_DBO,
 	slv_6502_DBI,
 	slv_AII				: std_logic_vector( 7 downto 0) := (others=>'0');
 signal
-	slv_PAD,
-	slv_PAD0,
-	slv_PAD1			: std_logic_vector( 5 downto 0) := (others=>'0');
+	slv_ROMADDR			: std_logic_vector(13 downto 0) := (others=>'0');
+signal
+	slv_LA				: std_logic_vector(15 downto 1) := (others=>'0');
+signal
+	slv_CTRL,
+	slv_MID,
+	slv_ROM_DI,
+	slv_RAM_DO,
+	slv_DALI,
+	slv_DALO			: std_logic_vector(15 downto 0) := (others=>'0');
 signal
 	slv_RWD_ctr			: std_logic_vector(19 downto 0) := (others=>'0');
-signal
-	slv_SEL_last,
-	slv_SEL				: std_logic_vector( 1 downto 0) := (others=>'0');
-signal
-	slv_ctr_3F,
-	slv_ctr_4D			: std_logic_vector( 3 downto 0) := (others=>'0');
-
 begin
+	sl_STANDALONEn <= not I_STANDALONE; -- transistor Q6 inverts signal
 	sl_CLK         <= I_CLK;
 	O_P2RESETn     <= sl_P2RESETn;
 	O_RST6502n     <= sl_RST6502n;
 	sl_P2PORTRDn   <= I_P2PORTRDn;
 	sl_P2PORTWRn   <= I_P2PORTWRn;
-	O_ROM_ADDR     <=      "00" & slv_LA(14 downto 1) when sl_SLAPSTICn = '0' else slv_PAD(5 downto 2) & slv_LA(12 downto 1) when sl_PAGEDMEMn = '0';
+
 	O_TMS_CLK_ENA  <= sl_TMS_CLK_ENA;
 	sl_SPEED       <= I_SPEED;
 	sl_P2IRQCLRn   <= I_P2IRQCLRn;
@@ -199,8 +204,8 @@ begin
 	O_P2IRQn       <= sl_P2IRQn;
 	O_T11_DB       <= slv_T11_DBO;
 	slv_6502_DBI   <= I_6502_DB;
-
-	sl_PORn <= not I_PWRONRST; -- Power On Reset
+	O_ADC_ADDR <= slv_ADC_ADDR;
+	sl_PORn        <= not I_PWRONRST; -- Power On Reset
 
 	-- edge detectors
 	p_edgedetect : process
@@ -246,7 +251,7 @@ begin
 		wait until rising_edge(sl_CLK);
 		if (sl_RASn = '1' or sl_BCLRn = '0') then
 			sl_MEMDONE <= '0';
-		elsif (I_STANDALONEn = '0') or (sl_VIDMEMACKn_last = '0' and sl_VIDMEMACKn = '1') then
+		elsif (sl_STANDALONEn = '0') or (sl_VIDMEMACKn_last = '0' and sl_VIDMEMACKn = '1') then
 			sl_MEMDONE <= '1';
 		end if;
 	end process;
@@ -295,7 +300,7 @@ begin
 	p_2L : process
 	begin
 		wait until rising_edge(sl_CLK);
-		if (sl_CASn_last = '1' and sl_CASn = '0') then -- FIXME what is the CAS pulse width
+		if (sl_CASn_last = '1' and sl_CASn = '0') then
 			slv_AII <= (sl_HALTn, sl_PFAILn, '1', sl_3N2Qn, sl_2M2Qn, sl_2M1Qn, sl_3N1Qn, '1');
 		end if;
 	end process;
@@ -320,15 +325,16 @@ begin
 	p_4K_5M : process
 	begin
 		wait until rising_edge(sl_CLK);
-		if (sl_RASn_last = '0' and sl_RASn = '1') then -- FIXME what is the RAS pulse width
-			slv_LA <= slv_DALO(15 downto 1);
+--		if (sl_RASn_last = '1' and sl_RASn = '0') then -- latch addr on falling /RAS
+		if (sl_RASn = '1') then
+			slv_LA <= slv_DALO(15 downto 1); -- holds last address when RAS goes low
 		end if;
 	end process;
 
 	-- Processor Input Data Bus Multiplexer
 	slv_DALI <=
-		I_ROM_DATA            when (sl_SLAPSTICn and sl_PAGEDMEMn) = '0' else -- ROM Data Bus Transceivers from 4N 5H sheet 5B
-		slv_RAM_DATA          when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
+		slv_ROM_DI            when (sl_SLAPSTICn and sl_PAGEDMEMn) = '0' else -- ROM Data Bus Transceivers from 4N 5H sheet 5B
+		slv_RAM_DO            when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
 		slv_CTRL              when sl_CONTROLSn                    = '0' else -- Control Panel Input Buffers 2F, 5F sheet 6A
 		x"00" & slv_6502_DATA when sl_P1PORTRDn                    = '0' else -- 6502 Microprocessor Comms Latches 6E, 5E sheet 6A
 		x"00" & I_ADC_DATA    when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
@@ -356,12 +362,7 @@ begin
 		pin_ras_n   => sl_RASn,               -- out RASn (pin 29)
 		pin_cas_n   => sl_CASn,               -- out CASn (pin 30)
 		pin_pi      => open,                  -- out priority in strobe (pin 31, unused)
-                                              -- in  DMRn (pin 32, AI0, unused)
-		pin_cp_n    => slv_AII(4 downto 1),   -- in  coded interrupt priority (pins 33-36, AI4,3,2,1)
-		pin_vec_n   => slv_AII(5),            -- in  vectored interrupt request (pin 37, AI5, unused)
-		pin_pf_n    => slv_AII(6),            -- in  power fail notification (pin 38, AI6)
-		pin_hlt_n   => slv_AII(7),            -- in  supervisor exception requests (pin 39, AI7)
-		pin_bsel    => slv_DALI(15 downto 13) -- in  loads (re)start addr mode register
+		pin_ai      => slv_AII                -- in  coded interrupt priority (pin 32,33,34,35,36,37,38,39)
 	);
 
 -------- Sheet 5A --------
@@ -439,6 +440,9 @@ begin
 
 	-- ROMs moved outside this module
 	-- decoder 5L sheet 5B unused here
+	slv_ROM_DI <= I_ROM_DATA;
+	-- when LA15 is set send SLAPSTIC ROM address, else send PAGED ADDRESS
+	O_ROM_ADDR <= slv_LA(15 downto 1) when sl_SLAPSTICn = '0' else slv_LA(15) & slv_PAD(5 downto 4) & slv_LA(12 downto 1);
 
 	-- 2N 2P Paged Address Read
 	slv_PAD <= slv_PAD0 when slv_LA(13) = '0' else slv_PAD1;
@@ -485,12 +489,12 @@ begin
 	p_5J_3L : process
 	begin
 		wait until rising_edge(sl_CLK);
---		sl_RESET <= not sl_PORn; -- for debugging
-		if sl_PORn = '0' then
-			sl_RESET <= '1';
-		elsif slv_RWD_ctr(19) = '1' then
-			sl_RESET <= (not sl_RESET) and I_WDISn;
-		end if;
+		sl_RESET <= not sl_PORn; -- FIXME for simulation debugging only, speeds up reset
+--		if sl_PORn = '0' then
+--			sl_RESET <= '1';
+--		elsif slv_RWD_ctr(19) = '1' then
+--			sl_RESET <= (not sl_RESET) and I_WDISn;
+--		end if;
 	end process;
 
 -------- Sheet 6A --------
@@ -502,8 +506,8 @@ begin
 	sl_SLAPSTICn <= sl_CASn or not slv_LA(15); -- 3H
 
 	-- Zero-Page RAM
-	RAM_7P : entity work.RAM_2K8 port map (I_CLK => sl_CLK, I_CEn => sl_SRAMCEn, I_WEn => sl_R_WHn, I_ADDR => slv_LA(11 downto 1), I_DATA => slv_MID(15 downto 8), O_DATA => slv_RAM_DATA(15 downto 8) );
-	RAM_7K : entity work.RAM_2K8 port map (I_CLK => sl_CLK, I_CEn => sl_SRAMCEn, I_WEn => sl_R_WLn, I_ADDR => slv_LA(11 downto 1), I_DATA => slv_MID( 7 downto 0), O_DATA => slv_RAM_DATA( 7 downto 0) );
+	RAM_7P : entity work.RAM_2K8 port map (I_CLK => sl_CLK, I_CEn => sl_SRAMCEn, I_WEn => sl_R_WHn, I_ADDR => slv_LA(11 downto 1), I_DATA => slv_MID(15 downto 8), O_DATA => slv_RAM_DO(15 downto 8) );
+	RAM_7K : entity work.RAM_2K8 port map (I_CLK => sl_CLK, I_CEn => sl_SRAMCEn, I_WEn => sl_R_WLn, I_ADDR => slv_LA(11 downto 1), I_DATA => slv_MID( 7 downto 0), O_DATA => slv_RAM_DO( 7 downto 0) );
 
 	sl_SRAMCEn <= sl_MISCn or slv_LA(12); -- 1L
 	sl_MIENn <= sl_SRAMCEn and sl_SLAPSTICn and sl_PAGEDMEMn; -- 7J 5K
@@ -576,7 +580,7 @@ begin
 	begin
 		wait until rising_edge(sl_CLK);
 		if sl_ADCSTARTn = '0' then
-			O_ADC_ADDR <= slv_LA(3 downto 1);
+			slv_ADC_ADDR <= slv_LA(3 downto 1);
 		end if;
 	end process;
 
@@ -607,15 +611,13 @@ begin
 	begin
 		wait until rising_edge(sl_CLK);
 		slv_SEL_last <= slv_SEL;
-		if slv_SEL = "01" and slv_SEL_last = "00" then
+		if slv_SEL_last = "01" and slv_SEL = "00" then
 			HWRITE(s, "000" & slv_DALO(15));
 			HWRITE(s,   '0' & slv_DALO(14 downto 12));
 			HWRITE(s,   '0' & slv_DALO(11 downto  9));
 			HWRITE(s,   '0' & slv_DALO( 8 downto  6));
 			HWRITE(s,   '0' & slv_DALO( 5 downto  3));
 			HWRITE(s,   '0' & slv_DALO( 2 downto  0));
-			WRITE(s, string'(" ## "));
-			HWRITE(s, slv_RAM_DATA);
 			WRITE(s, string'(" ## ")); WRITE(s, now);
 			WRITELINE(ofile, s);
 		end if;
