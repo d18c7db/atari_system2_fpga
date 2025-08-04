@@ -78,7 +78,7 @@ entity FPGA_ATARISYS2 is
 		O_EEPWR     : out std_logic;
 --
 		I_ROM_DATA  : in  std_logic_vector(15 downto 0);
-		O_ROM_ADDR  : out std_logic_vector(15 downto 1);
+		O_ROM_ADDR  : out std_logic_vector(19 downto 1);
 
 		I_ANROMD    : in  std_logic_vector( 7 downto 0);
 		O_ANROMA    : out std_logic_vector(15 downto 0);
@@ -91,13 +91,8 @@ end FPGA_ATARISYS2;
 
 architecture RTL of FPGA_ATARISYS2 is
 signal
-	sl_SPEED,
 	sl_P2IRQCLRn,
 	sl_P2IRQn,
-	sl_TMS_CLK_ENA,
-	sl_LETA_CLK_ENA,
-	sl_P1TALK,
-	sl_P2TALK,
 	sl_P2PORTRDn,
 	sl_P2PORTWRn,
 	sl_RST6502n,
@@ -120,6 +115,16 @@ signal
 	sl_32V,
 	sl_EEPWR
 						: std_logic := '1';
+signal
+	sl_TMS_CLK_ENA,
+	sl_LETA_CLK_ENA,
+	sl_P1TALK,
+	sl_P2TALK,
+	sl_SPEED,
+	sl_HSYNC,
+	sl_VSYNC,
+	sl_CSYNCn
+						: std_logic := '0';
 signal slv_adc_addr		: std_logic_vector( 2 downto 0) := (others=>'0');
 signal
 	slv_CLK,
@@ -132,11 +137,6 @@ signal
 	slv_VIDEO_B,
 	slv_VIDEO_I
 						: std_logic_vector( 3 downto 0) := (others=>'0');
-signal
-	sl_HSYNC,
-	sl_VSYNC,
-	sl_CSYNCn
-						: std_logic;
 signal
 	slv_ANROMD,
 	slv_EEPDI,
@@ -156,10 +156,12 @@ signal
 	slv_PFROMD,
 	slv_ROM_DATA
 	: std_logic_vector(15 downto 0) := (others=>'0');
-signal slv_ROM_ADDR		: std_logic_vector(15 downto 1) := (others=>'0');
+signal slv_ROM_ADDR		: std_logic_vector(19 downto 1) := (others=>'0');
 signal slv_PFROMA		: std_logic_vector(17 downto 0) := (others=>'0');
 signal slv_MOROMA		: std_logic_vector(19 downto 0) := (others=>'0');
 begin
+	slv_adc_data <= I_ADC_DATA;
+	O_ADC_ADDR   <= slv_adc_addr;
 	slv_ROM_DATA <= I_ROM_DATA;
 	O_ROM_ADDR   <= slv_ROM_ADDR;
 

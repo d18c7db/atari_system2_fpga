@@ -15,10 +15,7 @@ library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.std_logic_unsigned.all;
 	use ieee.numeric_std.all;
--- synthesis translate_off
-	use ieee.std_logic_textio.all;
-	use std.textio.all;
--- synthesis translate_on
+
 
 entity MAIN is
 	port(
@@ -33,7 +30,7 @@ entity MAIN is
 		O_LETA_CLK_ENA   : out std_logic; -- LETA clock enable 156Khz
 
 		-- external ROMs
-		O_ROM_ADDR       : out std_logic_vector(15 downto 1);
+		O_ROM_ADDR       : out std_logic_vector(19 downto 1);
 		I_ROM_DATA       : in  std_logic_vector(15 downto 0);
 
 		-- External ADC
@@ -135,8 +132,6 @@ signal
 	sl_VIDMEMACKn_last,
 	sl_VIDMEMn,
 	sl_VSCROLLn,
-	sl_P1TALK,
-	sl_P2TALK,
 	sl_WDCLRn		: std_logic := '1';
 signal
 	sl_3MY1,
@@ -145,6 +140,8 @@ signal
 	sl_CPU_ENA,
 	sl_COUT,
 	sl_SPEED,
+	sl_P1TALK,
+	sl_P2TALK,
 	sl_P1IRQ0EN,
 	sl_P1IRQ1EN,
 	sl_P1IRQ2EN,
@@ -204,7 +201,7 @@ begin
 	O_P2IRQn       <= sl_P2IRQn;
 	O_T11_DB       <= slv_T11_DBO;
 	slv_6502_DBI   <= I_6502_DB;
-	O_ADC_ADDR <= slv_ADC_ADDR;
+	O_ADC_ADDR     <= slv_ADC_ADDR;
 	sl_PORn        <= not I_PWRONRST; -- Power On Reset
 
 	-- edge detectors
@@ -337,7 +334,7 @@ begin
 		slv_RAM_DO            when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
 		slv_CTRL              when sl_CONTROLSn                    = '0' else -- Control Panel Input Buffers 2F, 5F sheet 6A
 		x"00" & slv_6502_DATA when sl_P1PORTRDn                    = '0' else -- 6502 Microprocessor Comms Latches 6E, 5E sheet 6A
-		x"00" & I_ADC_DATA    when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
+		x"FF" & I_ADC_DATA    when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
 		x"36FF"               when sl_BCLRn                        = '0' else -- Mode Register as per chip 2F sheet 4B ("0011 0110 1111 1111")
 		I_VPD                 when sl_VIDMEMn                      = '0' else -- Video Transceivers 1K 1J sheet 6B
 		(others=>'0');
@@ -442,7 +439,9 @@ begin
 	-- decoder 5L sheet 5B unused here
 	slv_ROM_DI <= I_ROM_DATA;
 	-- when LA15 is set send SLAPSTIC ROM address, else send PAGED ADDRESS
-	O_ROM_ADDR <= slv_LA(15 downto 1) when sl_SLAPSTICn = '0' else slv_LA(15) & slv_PAD(5 downto 4) & slv_LA(12 downto 1);
+	O_ROM_ADDR <= 
+		slv_LA(15) & "000" & slv_LA(15 downto 1) when sl_SLAPSTICn = '0' else
+		slv_LA(15) & slv_PAD(5 downto 4) & slv_PAD(1 downto 0) & slv_PAD(3 downto 2) & slv_LA(12 downto 1);
 
 	-- 2N 2P Paged Address Read
 	slv_PAD <= slv_PAD0 when slv_LA(13) = '0' else slv_PAD1;
@@ -602,25 +601,4 @@ begin
 		end if;
 	end process;
 
--- print out cpu instruction fetch address for debugging
--- synthesis translate_off
-	p_DBG : process
-		type myfile is file of integer;
-		file		ofile			: TEXT open WRITE_MODE is "T11.log";
-		variable	s				: line;
-	begin
-		wait until rising_edge(sl_CLK);
-		slv_SEL_last <= slv_SEL;
-		if slv_SEL_last = "01" and slv_SEL = "00" then
-			HWRITE(s, "000" & slv_DALO(15));
-			HWRITE(s,   '0' & slv_DALO(14 downto 12));
-			HWRITE(s,   '0' & slv_DALO(11 downto  9));
-			HWRITE(s,   '0' & slv_DALO( 8 downto  6));
-			HWRITE(s,   '0' & slv_DALO( 5 downto  3));
-			HWRITE(s,   '0' & slv_DALO( 2 downto  0));
-			WRITE(s, string'(" ## ")); WRITE(s, now);
-			WRITELINE(ofile, s);
-		end if;
-	end process;
--- synthesis translate_on
 end RTL;
