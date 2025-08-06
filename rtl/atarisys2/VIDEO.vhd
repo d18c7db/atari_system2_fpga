@@ -40,6 +40,7 @@ entity VIDEO is
 
 		-- Video outbound control signals
 		O_VPACKn         : out std_logic; -- VIDMEMACKn
+		O_HBLANK         : out std_logic; -- HBLANK
 		O_384VD_4Hn      : out std_logic; -- VBLANK
 		O_32VDD_4Hn      : out std_logic; -- 32V
 		O_STANDALONE     : out std_logic;
@@ -306,6 +307,7 @@ begin
 	O_VPACKn      <= sl_VPACKn;
 	O_384VD_4Hn   <= sl_384VD_4Hn;
 	O_32VDD_4Hn   <= sl_32VDD_4Hn;
+	O_HBLANK      <= sl_512H and (sl_64H or sl_32H);
 
 	sl_VMP0       <= I_VMP0;
 	sl_VMP1       <= I_VMP1;

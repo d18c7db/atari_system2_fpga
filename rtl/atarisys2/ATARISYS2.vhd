@@ -43,7 +43,7 @@ entity FPGA_ATARISYS2 is
 		I_CLK_16M0  : in  std_logic; -- 16.0 Mhz
 		I_CLK_20M0  : in  std_logic; -- 20.0 MHz
 
-		-- Active low reset
+		-- Active high reset
 		I_RESET     : in  std_logic;
 
 		O_ADC_ADDR  : out std_logic_vector( 2 downto 0);
@@ -111,6 +111,7 @@ signal
 	sl_MEMDONE,
 	sl_STANDALONE,
 	sl_VIDMEMACKn,
+	sl_HBLANK,
 	sl_VBLANK,
 	sl_32V,
 	sl_EEPWR
@@ -260,6 +261,7 @@ begin
 
 		O_VPACKn       => sl_VIDMEMACKn,
 		O_384VD_4Hn    => sl_VBLANK,
+		O_HBLANK       => sl_HBLANK,
 		O_32VDD_4Hn    => sl_32V,
 		O_STANDALONE   => sl_STANDALONE,
 
