@@ -15,54 +15,53 @@ library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.std_logic_unsigned.all;
 	use ieee.numeric_std.all;
-
 entity VIDEO is
 	port(
-		I_CLK            : in  std_logic; -- 16MHz
+		I_CLK           : in  std_logic; -- 16MHz
 
 		-- Interboard connector P18 start
 
 		-- Video inbound control signals
-		I_VMP0           : in  std_logic;
-		I_VMP1           : in  std_logic;
-		I_R_WLn          : in  std_logic;
-		I_MEMREQn        : in  std_logic;
-		I_COLORAMn       : in  std_logic;
-		I_VSCROLLn       : in  std_logic;
-		I_HSCROLLn       : in  std_logic;
-		I_COUT           : in  std_logic;
-		I_MEMDONE        : in  std_logic;
+		I_VMP0          : in  std_logic;
+		I_VMP1          : in  std_logic;
+		I_R_WLn         : in  std_logic;
+		I_MEMREQn       : in  std_logic;
+		I_COLORAMn      : in  std_logic;
+		I_VSCROLLn      : in  std_logic;
+		I_HSCROLLn      : in  std_logic;
+		I_COUT          : in  std_logic;
+		I_MEMDONE       : in  std_logic;
 
 		-- Video address and data bus
-		I_VPA            : in  std_logic_vector(12 downto 1);
-		I_VPD            : in  std_logic_vector(15 downto 0);
-		O_VPD            : out std_logic_vector(15 downto 0);
+		I_VPA           : in  std_logic_vector(12 downto 1);
+		I_VPD           : in  std_logic_vector(15 downto 0);
+		O_VPD           : out std_logic_vector(15 downto 0);
 
 		-- Video outbound control signals
-		O_VPACKn         : out std_logic; -- VIDMEMACKn
-		O_HBLANK         : out std_logic; -- HBLANK
-		O_384VD_4Hn      : out std_logic; -- VBLANK
-		O_32VDD_4Hn      : out std_logic; -- 32V
-		O_STANDALONE     : out std_logic;
+		O_VPACKn        : out std_logic; -- VIDMEMACKn
+		O_HBLANK        : out std_logic; -- HBLANK
+		O_384VD_4Hn     : out std_logic; -- VBLANK
+		O_32VDD_4Hn     : out std_logic; -- 32V
+		O_STANDALONE    : out std_logic;
 
 		-- Interboard connector P18 end
 
 		-- Video ROMs
-		O_ANROMA         : out std_logic_vector(15 downto 0);
-		I_ANROMD         : in  std_logic_vector( 7 downto 0); -- in order 7S 7T (ANPIX 1 0)
-		O_MOROMA         : out std_logic_vector(19 downto 0);
-		I_MOROMD         : in  std_logic_vector(15 downto 0); -- in order 7HJ 7J 7M 7M (MOPIX 3 2 1 0)
-		O_PFROMA         : out std_logic_vector(17 downto 0);
-		I_PFROMD         : in  std_logic_vector(15 downto 0); -- in order 8A 8B 8BC 8CD (PFPIX 3 2 1 0)
+		O_ANROMA        : out std_logic_vector(15 downto 0);
+		I_ANROMD        : in  std_logic_vector( 7 downto 0); -- in order 7S 7T (ANPIX 1 0)
+		O_MOROMA        : out std_logic_vector(19 downto 0);
+		I_MOROMD        : in  std_logic_vector(15 downto 0); -- in order 7HJ 7J 7M 7M (MOPIX 3 2 1 0)
+		O_PFROMA        : out std_logic_vector(17 downto 0);
+		I_PFROMD        : in  std_logic_vector(15 downto 0); -- in order 8A 8B 8BC 8CD (PFPIX 3 2 1 0)
 
 		-- Video picture and signals output
-		O_VIDEO_I        : out std_logic_vector(3 downto 0);
-		O_VIDEO_R        : out std_logic_vector(3 downto 0);
-		O_VIDEO_G        : out std_logic_vector(3 downto 0);
-		O_VIDEO_B        : out std_logic_vector(3 downto 0);
-		O_COMPSYNCn      : out std_logic;
-		O_HSYNC          : out std_logic;
-		O_VSYNC          : out std_logic
+		O_VIDEO_I       : out std_logic_vector(3 downto 0);
+		O_VIDEO_R       : out std_logic_vector(3 downto 0);
+		O_VIDEO_G       : out std_logic_vector(3 downto 0);
+		O_VIDEO_B       : out std_logic_vector(3 downto 0);
+		O_COMPSYNCn     : out std_logic;
+		O_HSYNC         : out std_logic;
+		O_VSYNC         : out std_logic
 	);
 end VIDEO;
 
@@ -245,8 +244,8 @@ signal
 	slv_PROMD,
 	slv_R, slv_G, slv_B,
 	slv_Z			: std_logic_vector( 3 downto 0) := (others=>'0');
-signal slv_PFB0			: std_logic_vector( 3 downto 0) := x"0"; -- address 1700 playfield bank 1 select
-signal slv_PFB1			: std_logic_vector( 3 downto 0) := x"1"; -- addredd 1780 playfield bank 2 select
+signal slv_PFB0		: std_logic_vector( 3 downto 0) := x"0"; -- address 1700 playfield bank 1 select
+signal slv_PFB1		: std_logic_vector( 3 downto 0) := x"1"; -- addredd 1780 playfield bank 2 select
 signal
 	slv_MOLBI,
 	slv_MOLBO,
