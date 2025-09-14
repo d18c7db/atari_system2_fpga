@@ -16,10 +16,9 @@ library ieee;
 	use ieee.std_logic_unsigned.all;
 	use ieee.numeric_std.all;
 
-
 entity MAIN is
 	port(
-		I_SLAP_TYPE      : in  integer range 100 to 118; -- slapstic type can be changed dynamically
+		I_SLAP_TYPE      : in  integer range 0 to 118; -- slapstic type can be changed dynamically
 		I_CLK            : in  std_logic; -- 20MHz
 		I_PWRONRST       : in  std_logic; -- Power On Reset active high
 		I_SELFTESTn      : in  std_logic; -- Places board in Self Test mode when low
@@ -37,20 +36,21 @@ entity MAIN is
 		O_ADC_ADDR       : out std_logic_vector( 2 downto 0);
 		I_ADC_DATA       : in  std_logic_vector( 7 downto 0);
 
-		-- Inter-processor data bus and comms signalling
-		O_P1TALK         : out std_logic;
-		O_P2TALK         : out std_logic;
+		-- Inter-processor data bus and comms handshaking
+		O_T11_DB         : out std_logic_vector( 7 downto 0); -- T-11 to 6502 data bus
+		O_P1TALK         : out std_logic; -- T-11 to 6502 write request active flag
+		O_P1PORTRDn      : out std_logic; -- T-11 write request ack
 
-		I_P2PORTRDn      : in  std_logic;
-		I_P2PORTWRn      : in  std_logic;
+		I_6502_DB        : in  std_logic_vector( 7 downto 0); -- 6502 to T-11 data bus
+		I_P2TALK         : in  std_logic; -- 6502 to T-11 write request active flag
+		I_P2PORTRDn      : in  std_logic; -- 6502 write request ack
+		I_P2PORTWRn      : in  std_logic; -- 6502 write request
 
 		O_P2RESETn       : out std_logic; -- 6502 misc reset
 		O_RST6502n       : out std_logic; -- 6502 CPU reset
 		O_P2IRQn         : out std_logic;
 		I_P2IRQCLRn      : in  std_logic;
 
-		I_6502_DB        : in  std_logic_vector( 7 downto 0); -- 6502 to T-11
-		O_T11_DB         : out std_logic_vector( 7 downto 0); -- T-11 to 6502
 
 		-- Video Board Connector P18
 		O_VMP0           : out std_logic;
@@ -167,7 +167,6 @@ signal
 	slv_PAD0,
 	slv_PAD1			: std_logic_vector( 5 downto 0) := (others=>'0');
 signal
-	slv_6502_DATA,
 	slv_T11_DBO,
 	slv_6502_DBI,
 	slv_AII				: std_logic_vector( 7 downto 0) := (others=>'0');
@@ -184,23 +183,48 @@ signal
 	slv_DALO			: std_logic_vector(15 downto 0) := (others=>'0');
 signal
 	slv_RWD_ctr			: std_logic_vector(19 downto 0) := (others=>'0');
+component T11
+port (
+	pin_ad_in   : in  std_logic_vector(15 downto 0);
+	pin_ad_out  : out std_logic_vector(15 downto 0);
+	pin_bclr_n  : out std_logic;
+	pin_dclo    : in  std_logic;
+	pin_cout    : out std_logic;
+	clk_ena     : in  std_logic;
+	pin_clk_p   : in  std_logic;
+	pin_clk_n   : in  std_logic;
+	pin_sel     : out std_logic_vector( 1 downto 0);
+	pin_ready   : in  std_logic;
+	pin_wb_n    : out std_logic_vector( 1 downto 0);
+	pin_ras_n   : out std_logic;
+	pin_cas_n   : out std_logic;
+	pin_pi      : out std_logic;
+	pin_ai      : in  std_logic_vector( 7 downto 0)
+);
+end component;
+
 begin
+	-- comms to 6502
+	O_T11_DB       <= slv_T11_DBO;
+	O_P1PORTRDn    <= sl_P1PORTRDn;
+	O_P1TALK       <= sl_P1TALK;
+
+	-- comms from 6502
+	slv_6502_DBI   <= I_6502_DB;
+	sl_P2PORTRDn   <= I_P2PORTRDn;
+	sl_P2PORTWRn   <= I_P2PORTWRn;
+	sl_P2TALK      <= I_P2TALK;
+
 	sl_STANDALONEn <= not I_STANDALONE; -- transistor Q6 inverts signal
 	sl_CLK         <= I_CLK;
 	O_P2RESETn     <= sl_P2RESETn;
 	O_RST6502n     <= sl_RST6502n;
-	sl_P2PORTRDn   <= I_P2PORTRDn;
-	sl_P2PORTWRn   <= I_P2PORTWRn;
 
 	O_TMS_CLK_ENA  <= sl_TMS_CLK_ENA;
 	sl_SPEED       <= I_SPEED;
 	sl_P2IRQCLRn   <= I_P2IRQCLRn;
-	O_P1TALK       <= sl_P1TALK;
-	O_P2TALK       <= sl_P2TALK;
 	O_LETA_CLK_ENA <= slv_RWD_ctr(5);
 	O_P2IRQn       <= sl_P2IRQn;
-	O_T11_DB       <= slv_T11_DBO;
-	slv_6502_DBI   <= I_6502_DB;
 	O_ADC_ADDR     <= slv_ADC_ADDR;
 	sl_PORn        <= not I_PWRONRST; -- Power On Reset
 
@@ -330,17 +354,17 @@ begin
 
 	-- Processor Input Data Bus Multiplexer
 	slv_DALI <=
-		slv_ROM_DI            when (sl_SLAPSTICn and sl_PAGEDMEMn) = '0' else -- ROM Data Bus Transceivers from 4N 5H sheet 5B
-		slv_RAM_DO            when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
-		slv_CTRL              when sl_CONTROLSn                    = '0' else -- Control Panel Input Buffers 2F, 5F sheet 6A
-		x"00" & slv_6502_DATA when sl_P1PORTRDn                    = '0' else -- 6502 Microprocessor Comms Latches 6E, 5E sheet 6A
-		x"FF" & I_ADC_DATA    when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
-		x"36FF"               when sl_BCLRn                        = '0' else -- Mode Register as per chip 2F sheet 4B ("0011 0110 1111 1111")
-		I_VPD                 when sl_VIDMEMn                      = '0' else -- Video Transceivers 1K 1J sheet 6B
+		slv_ROM_DI           when (sl_SLAPSTICn and sl_PAGEDMEMn) = '0' else -- ROM Data Bus Transceivers from 4N 5H sheet 5B
+		slv_RAM_DO           when sl_SRAMCEn                      = '0' else -- RAM Data Bus Transceivers from 4N 5H sheet 5B
+		slv_CTRL             when sl_CONTROLSn                    = '0' else -- Control Panel Input Buffers 2F, 5F sheet 6A
+		x"00" & slv_6502_DBI when sl_P1PORTRDn                    = '0' else -- 6502 Microprocessor Comms Latch 6E sheet 6A
+		x"FF" & I_ADC_DATA   when sl_ADCn                         = '0' else -- ADC Converter Buffer 4P sheet 7B
+		x"36FF"              when sl_BCLRn                        = '0' else -- Mode Register as per chip 2F sheet 4B ("0011 0110 1111 1111")
+		I_VPD                when sl_VIDMEMn                      = '0' else -- Video Transceivers 1K 1J sheet 6B
 		(others=>'0');
 
 	-- T-11 Microprocessor
-	u_cpu : entity work.T11                   -- pins 8, 20 GND, 40 VCC
+	u_cpu : T11                                   -- pins 8, 20 GND, 40 VCC
 	port map (
 		pin_ad_in   => slv_DALI,              -- in  DAL bus (pins 1-7, 9-17 with pullups when BCLRn active)
 		pin_ad_out  => slv_DALO,              -- out DAL bus (pins 1-7, 9-17)
@@ -414,20 +438,15 @@ begin
 	-- Used In Development Only
 	-- PAD decoder circuit 11B 11C/D not implemented
 
-	-- 6502 Microprocessor Communication Flags
-	p_4J : process
+	-- T-11 to 6502 Microprocessor Communication Latch and Flags
+	p_4J_5E : process
 	begin
 		wait until rising_edge(sl_CLK);
 		if (sl_P2PORTRDn_last = '0') and (sl_P2PORTRDn = '1') then
-			sl_P1TALK <= '0';
+			sl_P1TALK <= '0'; -- 6502 has read it
 		elsif sl_P1PORTWRn_last = '0' and sl_P1PORTWRn = '1' then
-			sl_P1TALK <= '1';
-		end if;
-
-		if (sl_P1PORTRDn_last = '0') and (sl_P1PORTRDn = '1') then
-			sl_P2TALK <= '0';
-		elsif sl_P2PORTWRn_last = '0' and sl_P2PORTWRn = '1' then
-			sl_P2TALK <= '1';
+			slv_T11_DBO <= slv_DALO(7 downto 0); -- 5E Sheet 6A
+			sl_P1TALK <= '1'; -- T-11 has sent data
 		end if;
 	end process;
 
@@ -469,7 +488,7 @@ begin
 		wait until rising_edge(sl_CLK);
 		if sl_CLK_ENA = '1' then
 			if (sl_PORn and sl_WDCLRn) = '0' then
-				slv_RWD_ctr(7 downto 0) <= (others=>'0');
+				slv_RWD_ctr(19 downto 12) <= (others=>'0');
 			else
 				-- slv_RWD_ctr( 0) is 5.00 MHz
 				-- slv_RWD_ctr( 1) is 2.50 MHz
@@ -511,18 +530,6 @@ begin
 	sl_SRAMCEn <= sl_MISCn or slv_LA(12); -- 1L
 	sl_MIENn <= sl_SRAMCEn and sl_SLAPSTICn and sl_PAGEDMEMn; -- 7J 5K
 
-	-- 6502 Microprocessor Communication Latches
-	p_6E_5E : process
-	begin
-		wait until rising_edge(sl_CLK);
-		if sl_P2PORTWRn_last = '0' and sl_P2PORTWRn = '1' then
-			slv_6502_DATA <= slv_6502_DBI; -- 6E
-		end if;
-		if sl_P1PORTWRn_last = '0' and sl_P1PORTWRn = '1' then
-			slv_T11_DBO <= slv_DALO(7 downto 0); -- 5E
-		end if;
-	end process;
-
 	-- Control Panel inputs
 	slv_CTRL <= I_SELFTESTn & "1111111" & I_SW(1) & I_SW(2) & sl_P1TALK & sl_P2TALK & I_SW(3) & I_SW(4) & I_SW(5) & I_SW(6); -- 2F 5P
 
@@ -551,7 +558,7 @@ begin
 		if sl_CLK_ENA = '1' then
 			if sl_P2IRQCLRn_last = '1' and sl_P2IRQCLRn = '0' then
 				slv_ctr_3F <= (others => '0');
-			elsif slv_RWD_ctr = x"00FFF" then -- 10M/4096 = 2441 Hz clock enable
+			elsif slv_RWD_ctr(11 downto 0) = x"FFF" then -- 10M/4096 = 2441 Hz clock enable
 				slv_ctr_3F <= slv_ctr_3F + 1;
 			end if;
 		end if;
@@ -567,7 +574,7 @@ begin
 		if sl_RESET = '1' then
 			sl_RST6502n <= '0';
 		elsif sl_P2RESETn_last = '0' and sl_P2RESETn = '1' then
-			sl_RST6502n <= slv_DALO(0);
+			sl_RST6502n <= not slv_DALO(0);
 		end if;
 	end process;
 
