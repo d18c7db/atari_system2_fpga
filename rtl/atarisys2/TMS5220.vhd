@@ -29,6 +29,37 @@
 --      * Everything to do with TMS6100 external VSM ROM
 --      *
 
+--	Internal clocking and frames
+--	
+--	I_OSC is the system wide register clock, typically running at many MHz and often at a frequency not easily divisible down to 640Khz/800Khz
+--	I_ENA is to be considered the module's proper clock, can be of any duty cycle as long as both the high and low times are wide enough to cover at least one full I_OSC period.
+--	Internal logic is advanced on the rising edge of I_ENA based on I_OSC so the number of rising edges per second determine the frequency such as 640Khz/800Khz/other.
+--	Ths means that I_OSC needs to be at least twice the frequency of I_ENA due to Nyquist, which in practice it will be (typical min. I_OSC is 1.8MHz)
+--
+--	According to datasheet the I_ENA clock frequecy determines the sample rate as 640Khz->8Khz, 800Khz->10Khz
+--
+--	P  = (Phase) I_ENA clocks
+--	T  = (Time) Sample Period
+--	PC = (Parameter Count) Interpolation Interval
+--	IC = (Interpolation Cycle) Frame Period
+--	P0 P1 P2 P3
+--	|  _______/
+--	| |
+--	T1 T2 T3 T4 T5 T6 T7 T8 T9 T10 T11 T12 T13 T14 T15 T16 T17 T18 T19 T20
+--	|    ________________________________________________________________/
+--	|   |
+--	PC0A PC0B PC1A PC1B ... PC11A PC11B PC12A (NO PC12B !)
+--	|   ___________________________________/
+--	|  |
+--	IC0 IC1 IC2 IC3 IC4 IC5 IC6 IC7
+--	|     _______________________/
+--	|    |
+--	FRAME FRAME ...
+--
+--	at 640Khz there are 40 frames/sec   -> 640000 / 8 / 12.5 / 2 / 20 / 4 = 40
+--	at 800Khz there are 50 frames/sec   -> 800000 / 8 / 12.5 / 2 / 20 / 4 = 50
+--
+
 library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.std_logic_unsigned.all;
@@ -60,7 +91,7 @@ entity TMS5220 is
 		O_T11    : out std_logic;                    -- pin  7 Sync
 		O_IO     : out std_logic;                    -- pin  9 Serial Data Out
 		O_PRMOUT : out std_logic;                    -- pin 10 Test use only
-		O_SPKR   : out signed(13 downto 0)           -- pin  8 Audio Output
+		O_SPKR   : out signed(11 downto 0)           -- pin  8 Audio Output
 	);
 end entity;
 
@@ -72,8 +103,8 @@ architecture RTL of TMS5220 is
 	type CH_ARRAY is array (0 to 51) of integer range     0 to  127; --  7 bits
 	type PI_ARRAY is array (0 to 63) of integer range     0 to  255; --  8 bits
 	type KV_ARRAY is array (0 to  9) of integer range  -512 to  511; -- 10 bits
-	type MU_ARRAY is array (0 to 10) of integer range -4096 to 4095; -- 13 bits
-	type MX_ARRAY is array (0 to  9) of integer range -4096 to 4095; -- 13 bits
+	type MU_ARRAY is array (0 to 10) of integer range -8192 to 8191; -- 14 bits
+	type MX_ARRAY is array (0 to  9) of integer range -8192 to 8191; -- 14 bits
 	type KT_ARRAY is array (0 to  9, 0 to 31) of integer range -512 to 511; -- 10 bits
 
 	constant FIFO_bits   : integer := 128; -- FIFO size in bits
@@ -86,7 +117,7 @@ architecture RTL of TMS5220 is
 	constant interp_coeff: IP_ARRAY := (0, 3, 3, 3, 2, 2, 1, 1);
 
 	constant energytable : EN_ARRAY := (
-		   0,   1,   2,   3,   4,   6,   8,   11,
+		   0,   1,   2,   3,   4,   6,   8,  11,
 		  16,  23,  33,  47,  63,  85, 114,   0);
 
 	constant pitchtable  : PI_ARRAY := (
@@ -114,21 +145,21 @@ architecture RTL of TMS5220 is
 		(-328,-303,-274,-244,-211,-175,-138, -99, -59, -18,  24,  64, 105, 143, 180, 215,
 		  248, 278, 306, 331, 354, 374, 392, 408, 422, 435, 445, 455, 463, 470, 476, 506), --K2
 		(-441,-387,-333,-279,-225,-171,-117, -63,  -9,  45,  98, 152, 206, 260, 314, 368,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K3
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K3
 		(-328,-273,-217,-161,-106, -50,   5,  61, 116, 172, 228, 283, 339, 394, 450, 506,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K4
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K4
 		(-328,-282,-235,-189,-142, -96, -50,  -3,  43,  90, 136, 182, 229, 275, 322, 368,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K5
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K5
 		(-256,-212,-168,-123, -79, -35,  10,  54,  98, 143, 187, 232, 276, 320, 365, 409,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K6
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K6
 		(-308,-260,-212,-164,-117, -69, -21,  27,  75, 122, 170, 218, 266, 314, 361, 409,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K7
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K7
 		(-256,-161, -66,  29, 124, 219, 314, 409,   0,   0,   0,   0,   0,   0,   0,   0,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K8
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K8
 		(-256,-176, -96, -15,  65, 146, 226, 307,   0,   0,   0,   0,   0,   0,   0,   0,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K9
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0), --K9
 		(-205,-132, -59,  14,  87, 160, 234, 307,   0,   0,   0,   0,   0,   0,   0,   0,
-			 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0)  --K10
+			0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0)  --K10
 		);
 
 	signal m_IC          : integer range 0 to   7 := 0; -- I0..I7    Interpolation Count
@@ -146,8 +177,8 @@ architecture RTL of TMS5220 is
 	signal tmp_new_frame_pitch_idx  : integer range 0 to  64 := 0;
 	signal tmp_new_frame_k_idx      : IX_ARRAY := (0, 0, 0, 0, 15, 15, 15, 7, 7, 7);
 
-	signal m_u      : MU_ARRAY := (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-	signal m_x      : MX_ARRAY := (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	signal m_u                      : MU_ARRAY := (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	signal m_x                      : MX_ARRAY := (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
 	signal
 		m_cycA,
@@ -157,6 +188,7 @@ architecture RTL of TMS5220 is
 		m_CLK,
 		m_DDIS,
 		m_ENA,
+		m_ENA_last,
 		m_OLDE,
 		m_OLDP,
 		m_RDB_clr,
@@ -198,7 +230,8 @@ architecture RTL of TMS5220 is
 		phictr
 								: std_logic_vector( 1 downto 0) := (others=>'0');
 	signal
-		m_PHI
+		m_PHI,
+		m_rdy_ct
 								: std_logic_vector( 4 downto 1) := (others=>'0');
 	signal
 		m_WR_reg,
@@ -207,10 +240,10 @@ architecture RTL of TMS5220 is
 								: std_logic_vector( 7 downto 0) := (others=>'0');
 	signal
 		m_speech
-								: std_logic_vector(13 downto 0) := (others=>'0');
+								: std_logic_vector(11 downto 0) := (others=>'0');
 	signal
 		m_shift
-								: std_logic_vector(13 downto 0) := (others=>'0');
+								: std_logic_vector(11 downto 0) := (others=>'0');
 	signal
 		m_RNG
 								: std_logic_vector(12 downto 0) := (others=>'1');
@@ -237,9 +270,9 @@ begin
 	m_DBI    <= I_DBUS;
 
 	O_DBUS   <= m_DBO;
-	O_RDYn   <= not (m_io_ready or (not m_DDIS));
+	O_RDYn   <= (m_rdy_ct(4) or m_rdy_ct(3) or m_rdy_ct(2) or m_rdy_ct(1) ) or (not (m_io_ready or (not m_DDIS)));
 	O_INTn   <= not m_irq_pin;
-	O_SPKR   <= to_signed(this_sample, 14);
+	O_SPKR   <= to_signed(this_sample, O_SPKR'length);
 
 	-- VSM memory bus driver (not implemented)
 	O_M0     <= '1';
@@ -263,7 +296,7 @@ begin
 	p_TIMING : process(m_CLK, m_ENA)
 	begin
 		if rising_edge(m_CLK) then
-			if (m_ENA = '1') then
+			if (m_ENA_last = '0' and m_ENA = '1') then
 				phictr <= phictr + 1;
 				if (phictr = "11") then
 					-- time period counter
@@ -302,7 +335,7 @@ begin
 	m_PHI(3) <= (    phictr(1)) or phictr(0);
 	m_PHI(4) <= (not phictr(1)) or phictr(0);
 
-	m_speech <= std_logic_vector(to_signed(this_sample, m_speech'length)); --
+	m_speech <= std_logic_vector(to_signed(this_sample, m_speech'length));
 
 	-- ROMCLK __--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__--__
 	--           0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19   0   1
@@ -332,7 +365,7 @@ begin
 	p_READY : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_FIFO_ptr < 8) then
 				m_io_ready <= '0';
 			else
@@ -345,7 +378,7 @@ begin
 	p_RDBF : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RDB_clr = '1') or (m_RST = '1') then
 				m_RDB_flag   <= '0';
 			elsif (m_RDB_cmd = '1') then
@@ -358,7 +391,7 @@ begin
 	p_IRQ : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			m_buffer_low_last <= m_buffer_low;
 			m_buffer_empty_last <= m_buffer_empty;
 			m_TALK_last <= m_TALK;
@@ -378,7 +411,7 @@ begin
 	p_PRNG : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RST = '1')
 -- ###############################################################################
 --			OR (now < 49.975 ms)	-- FIXME remove this line after testing
@@ -395,7 +428,7 @@ begin
 	p_PITCH : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_TALKD = '1') then
 				if    (m_cycA = '1') and (m_IC = 7) and (m_PC = 12) and (m_T = 20) and (m_PHI(3) = '0') and (m_inhibit = '1') then
 					m_pitch_zero <= '1';
@@ -415,11 +448,23 @@ begin
 		end if;
 	end process;
 
+	p_RDYSTATUS : process
+	begin
+		wait until rising_edge(m_CLK);
+		if (m_ENA_last = '0' and m_ENA = '1') then
+			if ((m_RSn_last = '1') and (m_RSn = '0')) or ((m_WSn_last = '1') and (m_WSn = '0')) then
+				m_rdy_ct <= "0110";
+			elsif (m_rdy_ct /= "0000") then
+				m_rdy_ct <= m_rdy_ct - 1;
+			end if;
+		end if;
+	end process;
+
 	-- read select handler
 	p_RDSEL : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			m_RSn_last <= m_RSn;
 			m_irq_pin_clr  <= '0';
 			-- if read byte flag is set, return byte from VSM, otherwise return status
@@ -440,7 +485,7 @@ begin
 	p_EXDAT : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			-- every new PC cycle
 			if (m_T = 17) and (m_PHI(3) = '0') then
 				if (m_OLDP = '1')  then
@@ -464,7 +509,7 @@ begin
 	p_SPEN : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RST = '1') or (m_UF = '1') then
 				m_SPEN <= '0';
 			elsif ((m_new_frame_stop = '1') and (m_cycA = '1') and (m_IC = 0) and (m_PC = 12) and (m_T = 19) and (m_PHI(3) = '0')) then
@@ -480,7 +525,7 @@ begin
 	p_PREV : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			-- if Reset or "Speak External" or Write when Decode Disable is on and Speak Enable is off and this write makes BL transition from 1 to 0
 			if (m_RST = '1') or (m_SXT_cmd = '1') or ( (m_WR_pending = '1') and (m_DDIS = '1') and (m_SPEN = '0') and (m_buffer_low_last = '1') and (m_buffer_low = '0') ) then
 				m_OLDE     <= '1';
@@ -505,12 +550,12 @@ begin
 	p_TALKD : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			-- if RESET command then stop speech
 			if (m_RST = '1') then
 				m_TALK  <= '0';
 				m_TALKD <= '0';
-			elsif (m_cycA = '1') and (m_IC = 7) and (m_PC = 12) and (m_T = 16) and (m_PHI(3) = '0')then
+			elsif (m_cycA = '1') and (m_IC = 7) and (m_PC = 12) and (m_T = 16) and (m_PHI(3) = '0') then
 				-- if BL transitions from 1 to 0 while SPEN = 0
 
 				if (m_TALK = '0') and (m_SPEN = '1') then
@@ -528,7 +573,7 @@ begin
 	p_INTERP : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RST = '1') then
 				m_current_energy  <= 0;
 				m_current_pitch   <= 0;
@@ -550,9 +595,13 @@ begin
 							to_integer(shift_right(to_signed(pitchtable(m_new_frame_pitch_idx) - m_current_pitch,12) , interp_coeff(m_IC)));
 						end if;
 					when 2 to 5  =>
-						if (m_inhibit = '0') or (m_IC = 0) then
-							m_current_k(m_PC-2) <= m_current_k(m_PC-2) +
-							to_integer(shift_right(to_signed((ktable((m_PC-2),(m_new_frame_k_idx(m_PC-2))) - m_current_k(m_PC-2)),12) , interp_coeff(m_IC)));
+						if (m_zpar = '1') then
+							m_current_k(m_PC-2) <= 0;
+						else
+							if (m_inhibit = '0') or (m_IC = 0) then
+								m_current_k(m_PC-2) <= m_current_k(m_PC-2) +
+								to_integer(shift_right(to_signed((ktable((m_PC-2),(m_new_frame_k_idx(m_PC-2))) - m_current_k(m_PC-2)),12) , interp_coeff(m_IC)));
+							end if;
 						end if;
 					when 6 to 11 =>
 						if (m_uv_zpar = '1') then
@@ -574,12 +623,12 @@ begin
 	p_LATFLT : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RST = '1') then
 				m_previous_energy <= 0;
 				m_u <= (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 				m_x <= (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-			elsif (m_TALKD = '1')  and (m_PHI(4) = '0') then
+			elsif (m_TALKD = '1') and (m_PHI(4) = '0') then
 				-- Parameter Count cycle B
 				case m_T is
 					when  1 =>
@@ -616,7 +665,16 @@ begin
 					when 12 =>
 						m_x( 1) <= m_x( 0) + to_integer(shift_right(to_signed(m_current_k( 0) * m_u( 0),   22), 9));
 						m_x( 0) <= m_u( 0);
-						this_sample <= m_u( 0);
+
+						-- clipping
+						if m_u(0)>2047 then
+							this_sample <= 2047;
+						elsif m_u(0)<-2048 then
+							this_sample <= -2048;
+						else
+							this_sample <= m_u(0);
+						end if;
+
 					when others => null;
 				end case;
 			end if;
@@ -627,8 +685,8 @@ begin
 	p_CMD : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
-			if ((m_WSn_last = '1') and (m_WSn = '0') and (m_RSn = '1')) then
+		if (m_ENA_last = '0' and m_ENA = '1') then
+			if ((m_WSn_last = '0') and (m_WSn = '1') and (m_RSn = '1')) then
 				m_RDB_cmd  <= '0';
 				m_RST_cmd  <= '0';
 				m_SXT_cmd  <= '0';
@@ -658,7 +716,7 @@ begin
 	p_DDIS : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			m_TALKD_last <= m_TALKD;
 			if (m_RST = '1') or (m_TALKD_last= '1' and m_TALKD= '0') then
 				m_DDIS <= '0'; -- clear on RESET or falling edge of TALKD
@@ -672,7 +730,7 @@ begin
 	p_INHIBIT : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RST = '1') then
 				m_inhibit <= '1';
 			elsif (m_cycA = '1') and (m_IC = 0) and (m_PC = 12) and (m_T = 19) and (m_PHI(3) = '0') and (m_TALKD = '1') then
@@ -694,14 +752,13 @@ begin
 	p_ZPAR : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			if (m_RST = '1') or ((m_DDIS = '0') and (m_SXT_cmd <= '1')) or
 				((m_WSn_last = '1') and (m_WSn = '0') and (m_RSn = '1') and (m_DDIS = '1') and (m_SPEN = '0') and (m_FIFO_ptr > 64) and (m_FIFO_ptr < 73))
 			then
 				m_zpar    <= '1';
 				m_uv_zpar <= '1';
-			end if;
-			if (m_cycA = '1') and (m_IC = 0) and (m_PC = 12) and (m_T = 19) and (m_PHI(3) = '0') and (m_TALKD = '1') then
+			elsif (m_cycA = '1') and (m_IC = 0) and (m_PC = 12) and (m_T = 19) and (m_PHI(3) = '0') and (m_TALKD = '1') then
 				m_zpar <= '0';
 				if (tmp_new_frame_pitch_idx = 0) and (tmp_new_frame_energy_idx /= 0) and (tmp_new_frame_energy_idx /= 15) then
 					m_uv_zpar <= '1';
@@ -716,7 +773,7 @@ begin
 	p_FIFO : process
 	begin
 		wait until rising_edge(m_CLK);
-		if (m_ENA = '1') then
+		if (m_ENA_last = '0' and m_ENA = '1') then
 			m_WSn_last <= m_WSn;
 			m_UF       <= '0'; -- FIFO underflow flag
 
@@ -774,7 +831,7 @@ begin
 								m_UF <= '1'; -- FIFO underflow
 							end if;
 						end if;
--- Quartus compiler, unlike Xilinx, is unable to deal with "when 2|3|4|5" type cases, so we expand everything
+
 					-- K1-K4  5 bits
 					when 2 =>
 						if ((m_new_frame_repeat = '0') and ((m_new_frame_voiced = '1') or (m_new_frame_unvoiced = '1'))) then
@@ -816,7 +873,7 @@ begin
 								m_UF <= '1'; -- FIFO underflow
 							end if;
 						end if;
--- Quartus compiler, unlike Xilinx, is unable to deal with "when 6|7|8|9|10|11" type cases, so we expand everything, again!
+
 					-- K5-K10  4 bits
 					when 6 =>
 						if ((m_new_frame_repeat = '0') and (m_new_frame_voiced = '1')) then
