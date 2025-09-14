@@ -9,7 +9,6 @@
 //          "constant clock mode" is just half the T-11 clock (phase not relevant) so that is easy to generate externally if needed
 //           but "processor mode clock" depends on internal phases so it's the more useful to have
 //         - removed individual external interrupt pins, added AI bus as per T-11 datasheet
-//           note that AI coded interrupt bits [4:1] are assigned internally to inr in reverse order, but the external AI pins respect datasheet order
 //         - removed special input bus for startup address, this value is read from the normal databus during PUP as per datasheet
 //         - added register init on PUP to values stated in datasheet, particularly SP and PSW should not be reset to 0
 //______________________________________________________________________________
